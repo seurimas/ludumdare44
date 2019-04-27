@@ -6,7 +6,7 @@ use amethyst::{
     input::*,
 };
 use crate::basics::*;
-use std::marker::PhantomData;
+use crate::utils::*;
 
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
@@ -31,22 +31,9 @@ pub struct PlayerMovementSystem {
 }
 impl PlayerMovementSystem {
     pub fn new() -> PlayerMovementSystem {
-        let mut idle = HitboxAnimation::new();
-        let frame = idle.add_frame(1.0);
-        idle.set_sprite(frame, 1);
-
-        let mut walking = HitboxAnimation::new();
-        let frame = walking.add_frame(0.1);
-        walking.set_sprite(frame, 1);
-        let frame = walking.add_frame(0.1);
-        walking.set_sprite(frame, 5);
-        let frame = walking.add_frame(0.1);
-        walking.set_sprite(frame, 1);
-        let frame = walking.add_frame(0.1);
-        walking.set_sprite(frame, 6);
         PlayerMovementSystem {
-            idle,
-            walking,
+            idle: idle_animation(1),
+            walking: walking_animation(1, 5, 6, 0.1),
         }
     }
 }
@@ -140,10 +127,6 @@ impl<'s> System<'s> for PlayerMovementSystem {
         }
     }
 }
-
-pub const ENEMY_HITTABLE_BOX: usize = 1;
-pub const PLAYER_ATTACK_BOX: usize = 2;
-pub const PLAYER_HITTABLE_BOX: usize = 3;
 
 pub struct PlayerAttackSystem {
     attacks: Vec<HitboxAnimation>,

@@ -61,46 +61,50 @@ impl Physical {
 
 pub const HITSTATE_SIZE: usize = 16;
 
+pub const ENEMY_HITTABLE_BOX: usize = 1;
+pub const PLAYER_ATTACK_BOX: usize = 2;
+pub const PLAYER_HITTABLE_BOX: usize = 3;
+pub const ENEMY_SIGHT_BOX: usize = 4;
+
 #[derive(Component, Debug, Clone)]
 #[storage(VecStorage)]
 pub struct HitState {
-    pub hitboxes: [Option<Hitbox>; HITSTATE_SIZE],
-    pub bounding: Hitbox,
+    hitboxes: [Option<Hitbox>; HITSTATE_SIZE],
+    rotation: Rotation,
 }
 
 impl HitState {
     pub fn new() -> HitState {
         HitState {
             hitboxes: Default::default(),
-            bounding: Hitbox {
-                size: 0.0,
-                offset: (0.0, 0.0),
-                debug_color: Some([0.0, 1.0, 1.0, 1.0].into()),
-            }
+            rotation: Rotation::East,
         }
     }
     pub fn set(&mut self, index: usize, size: f32, offset: (f32, f32)) {
         self.hitboxes[index] = Some(Hitbox::new_at(size, offset));
-        self.recalculate_bounding();
     }
     pub fn clear(&mut self, index: usize) {
         self.hitboxes[index] = None;
-        self.recalculate_bounding();
     }
-    pub fn get_all(&self) -> &[Option<Hitbox>; HITSTATE_SIZE] {
-        &self.hitboxes
+    pub fn rotate(&mut self, rotation: Rotation) {
+        self.rotation = rotation;
     }
-    pub fn recalculate_bounding(&mut self) {
-        if let Some(extent) = self.hitboxes
-            .iter()
-            .fold(None, |extent, next| match (extent, next) {
-                (None, Some(next)) => Some(
-                    next.offset.0.abs().max(next.offset.1.abs()) + next.size),
-                (Some(y), Some(next)) => Some(
-                    y.max(next.offset.0.abs().max(next.offset.1.abs()) + next.size)),
-                _ => extent,
-            }) {
-            self.bounding.size = extent;
+    pub fn get_all(&self) -> [Option<Hitbox>; HITSTATE_SIZE] {
+        let mut rotated = self.hitboxes.clone();
+        for i in 0..rotated.len() {
+            if let Some(mut hitbox) = rotated[i].as_mut() {
+                hitbox.offset = self.rotation.rotate(hitbox.offset);
+            }
+        }
+        rotated
+    }
+    pub fn get(&self, index: usize) -> Option<Hitbox> {
+        if let Some(hitbox) = self.hitboxes[index] {
+            let mut rotated = hitbox.clone();
+            rotated.offset = self.rotation.rotate(hitbox.offset);
+            Some(rotated)
+        } else {
+            None
         }
     }
 }
@@ -111,7 +115,7 @@ pub enum AnimationState {
     Attacking,
     Staggered,
 }
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy)]
 #[storage(VecStorage)]
 pub enum Rotation {
     East,
@@ -199,14 +203,14 @@ pub trait HitboxCollisionSystem<'s>: System<'s> {
         (hitboxes, transforms, entities, mut extra) : (ReadStorage<'s, HitState>, WriteStorage<'s, Transform>, Entities<'s>, Self::ExtraData)
     ) {
         for (hitbox_a, transform_a, entity_a) in (&hitboxes, &transforms, &entities).join() {
-            if hitbox_a.hitboxes[Self::source()].is_none() {
+            if hitbox_a.get(Self::source()).is_none() {
                 continue;
             }
             for (hitbox_b, transform_b, entity_b) in (&hitboxes, &transforms, &entities).join() {
                 if entity_a.id() == entity_b.id() {
-                } else if hitbox_b.hitboxes[Self::target()].is_none() {
+                } else if hitbox_b.get(Self::target()).is_none() {
                 } else if let (Some(attack), Some(hit)) =
-                    (hitbox_a.hitboxes[Self::source()], hitbox_b.hitboxes[Self::target()]) {
+                    (hitbox_a.get(Self::source()), hitbox_b.get(Self::target())) {
                     let mx = transform_a.translation().x;
                     let my = transform_a.translation().y;
                     let ox = transform_b.translation().x;

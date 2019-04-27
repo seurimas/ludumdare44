@@ -20,6 +20,7 @@ impl<'s> System<'s> for VelocitySystem {
         }
     }
 }
+
 pub struct RestitutionSystem;
 impl<'s> System<'s> for RestitutionSystem {
     type SystemData = (

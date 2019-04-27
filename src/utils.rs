@@ -7,6 +7,9 @@ use amethyst::{
     renderer::*,
 };
 use crate::basics::*;
+use rand::prelude::*;
+use rand::distributions::Standard;
+pub use rand::seq::SliceRandom;
 
 pub fn length(x: f32, y: f32) -> f32 {
     f32::sqrt(x * x + y * y)
@@ -85,4 +88,28 @@ pub fn load_spritesheet(world: &mut World, path: String) -> SpriteSheetHandle {
         (),
         &sprite_sheet_store,
     )
+}
+pub fn idle_animation(stand: usize) -> HitboxAnimation {
+    let mut idle = HitboxAnimation::new();
+    let frame = idle.add_frame(1.0);
+    idle.set_sprite(frame, stand);
+    idle
+}
+pub fn walking_animation(stand: usize, left: usize, right: usize, duration: f32) -> HitboxAnimation {
+    let mut walking = HitboxAnimation::new();
+    let frame = walking.add_frame(duration);
+    walking.set_sprite(frame, stand);
+    let frame = walking.add_frame(duration);
+    walking.set_sprite(frame, left);
+    let frame = walking.add_frame(duration);
+    walking.set_sprite(frame, stand);
+    let frame = walking.add_frame(duration);
+    walking.set_sprite(frame, right);
+    walking
+}
+pub fn random_between(low: f32, high: f32) -> f32 {
+    low + (high - low) * thread_rng().gen::<f32>()
+}
+pub fn rng() -> ThreadRng {
+    thread_rng()
 }
