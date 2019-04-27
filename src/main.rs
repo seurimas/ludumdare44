@@ -5,6 +5,7 @@ extern crate rand;
 mod utils;
 mod basics;
 mod physics;
+mod player;
 
 use std::path::Path;
 use amethyst::{
@@ -16,10 +17,11 @@ use amethyst::{
     renderer::*,
     utils::application_root_dir,
 };
-use nalgebra::Matrix4;
+use nalgebra::{ Vector3, Point3};
 use crate::utils::*;
 use crate::basics::*;
 use crate::physics::*;
+use crate::player::*;
 
 const stage: (f32, f32) = (400.0, 300.0);
 
@@ -28,66 +30,6 @@ impl<'s> System<'s> for EmptySystem {
     type SystemData = (
     );
     fn run(&mut self, () : Self::SystemData) {
-    }
-}
-struct PlayerMovementSystem;
-impl<'s> System<'s> for PlayerMovementSystem {
-    type SystemData = (
-        ReadStorage<'s, Player>,
-        WriteStorage<'s, Velocity>,
-        Read<'s, InputHandler<String, String>>,
-        Read<'s, Time>,
-    );
-    fn run(&mut self, (players, mut velocities, input, time) : Self::SystemData) {
-        let deacc_factor = 3.0;
-        for (player, mut velocity) in (&players, &mut velocities).join() {
-            let x_tilt = input.axis_value("leftright");
-            let y_tilt = input.axis_value("updown");
-            if let (Some(x_tilt), Some(y_tilt)) = (x_tilt, y_tilt) {
-                let mut x_accel = 0.0;
-                if x_tilt < 0.0 {
-                    x_accel = -player.walk_accel;
-                } else if x_tilt > 0.0 {
-                    x_accel = player.walk_accel;
-                } else if velocity.vx != 0.0 {
-                    let direction = velocity.vx / velocity.vx.abs();
-                    x_accel = player.walk_accel * -direction;
-                }
-                let mut y_accel = 0.0;
-                if y_tilt < 0.0 {
-                    y_accel = -player.walk_accel;
-                } else if y_tilt > 0.0 {
-                    y_accel = player.walk_accel;
-                } else if velocity.vy != 0.0 {
-                    let direction = velocity.vy / velocity.vy.abs();
-                    y_accel = player.walk_accel * -direction;
-                }
-                if (x_accel > 0.0 && velocity.vx <= 0.0)
-                    || (x_accel < 0.0 && velocity.vx > 0.0){
-                    x_accel *= deacc_factor;
-                }
-                if (y_accel > 0.0 && velocity.vy <= 0.0)
-                    || (y_accel < 0.0 && velocity.vy > 0.0){
-                    y_accel *= deacc_factor;
-                }
-                if x_tilt == 0.0 && x_accel.abs() * time.delta_seconds() > velocity.vx.abs() {
-                    velocity.vx = 0.0;
-                } else {
-                    velocity.vx += x_accel * time.delta_seconds();
-                }
-                if y_tilt == 0.0 && y_accel.abs() * time.delta_seconds() > velocity.vy.abs() {
-                    velocity.vy = 0.0;
-                } else {
-                    velocity.vy += y_accel * time.delta_seconds();
-                }
-                if velocity.vx.abs() > player.walk_speed {
-                    velocity.vx = player.walk_speed * velocity.vx.signum();
-                }
-                if velocity.vy.abs() > player.walk_speed {
-                    velocity.vy = player.walk_speed * velocity.vy.signum();
-                }
-            }
-        }
     }
 }
 struct CameraFollow;
@@ -137,20 +79,20 @@ impl<'s> System<'s> for CameraFollow {
 }
 struct DebugDrawHitboxes;
 impl DebugDrawHitboxes {
-    fn draw(&self, hitbox: &Hitbox, lines: &mut DebugLines, matrix: &Matrix4<f32>) {
+    fn draw(&self, hitbox: &Hitbox, lines: &mut DebugLines, offset: &Vector3<f32>) {
         let x = hitbox.offset.0 - hitbox.size;
         let y = hitbox.offset.1 - hitbox.size;
         let width = hitbox.size * 2.0;
         let height = hitbox.size * 2.0;
         let color = hitbox.debug_color.unwrap_or([1., 1., 1., 1.].into());
-        let bottom_left = [x, y, 0.1].into();
-        let bottom_left = matrix.transform_point(&bottom_left);
-        let bottom_right = [x + width, y, 0.1].into();
-        let bottom_right = matrix.transform_point(&bottom_right);
-        let top_left = [x, y + height, 0.1].into();
-        let top_left = matrix.transform_point(&top_left);
-        let top_right = [x + width, y + height, 0.1].into();
-        let top_right = matrix.transform_point(&top_right);
+        let bottom_left: Point3<f32> = [x, y, 0.1].into();
+        let bottom_left = bottom_left + offset;
+        let bottom_right: Point3<f32> = [x + width, y, 0.1].into();
+        let bottom_right = bottom_right + offset;
+        let top_left: Point3<f32> = [x, y + height, 0.1].into();
+        let top_left = top_left + offset;
+        let top_right: Point3<f32> = [x + width, y + height, 0.1].into();
+        let top_right = top_right + offset;
         lines.draw_line(bottom_left, bottom_right, color);
         lines.draw_line(bottom_left, top_left, color);
         lines.draw_line(top_right, bottom_right, color);
@@ -168,12 +110,52 @@ impl<'s> System<'s> for DebugDrawHitboxes {
         for (hitboxes, transform) in (&hitboxes, &transform).join() {
             for m_hitbox in hitboxes.get_all().iter() {
                 if let Some(hitbox) = m_hitbox {
-                    self.draw(&hitbox, &mut lines, &transform.matrix())
+                    self.draw(&hitbox, &mut lines, &transform.translation())
                 }
             }
         }
         for (physical, transform) in (&physical, &transform).join() {
-            self.draw(&physical.hitbox, &mut lines, &transform.matrix())
+            self.draw(&physical.hitbox, &mut lines, &transform.translation())
+        }
+    }
+}
+struct AnimationSystem;
+impl<'s> System<'s> for AnimationSystem {
+    type SystemData = (
+        WriteStorage<'s, AnimationController>,
+        WriteStorage<'s, HitState>,
+        WriteStorage<'s, Velocity>,
+        WriteStorage<'s, SpriteRender>,
+        ReadStorage<'s, Rotation>,
+        Read<'s, Time>,
+    );
+    fn run(&mut self, (mut animation, mut hitstate, mut velocity, mut sprite, rotation, time) : Self::SystemData) {
+        for (animation, hitstate, mut velocity, sprite, rotation) in (&mut animation, &mut hitstate, &mut velocity, &mut sprite, &rotation).join() {
+            if animation.active() {
+                let frame = animation.step(time.delta_seconds());
+                if let Some(frame) = frame {
+                    for i in 0..HITSTATE_SIZE {
+                        if let Some(hitbox) = frame.hitboxes[i] {
+                            hitstate.set(i, hitbox.size, rotation.rotate(hitbox.offset));
+                        }
+                    }
+                    let (vx, vy) = rotation.rotate(frame.velocity);
+                    velocity.vx = vx;
+                    velocity.vy = vy;
+                }
+            }
+        }
+    }
+}
+struct RotationSystem;
+impl<'s> System<'s> for RotationSystem {
+    type SystemData = (
+        ReadStorage<'s, Rotation>,
+        WriteStorage<'s, Transform>,
+    );
+    fn run(&mut self, (rotation, mut transform) : Self::SystemData) {
+        for (rotation, transform) in (&rotation, &mut transform).join() {
+            rotation.rotate_euler(transform);
         }
     }
 }
@@ -205,9 +187,9 @@ impl SimpleState for Example {
                 sprite_number: 0
             })
             .with(Player::new())
-            .with(Velocity { vx: 0.0, vy: 0.0 })
-            .with(Physical::new(8.0))
             .with(hitboxes)
+            .with(AnimationController::new())
+            .with_physics(8.0)
             .build();
 
         spawn_at(data.world, 0.0, 0.0)
@@ -215,7 +197,7 @@ impl SimpleState for Example {
             //     sprite_sheet: sprite_sheet.clone(),
             //     sprite_number: 0
             // })
-            .with(Physical::new(8.0))
+            .with_physics(8.0)
             .build();
 
         spawn_at(data.world, stage.0, 0.0)
@@ -223,7 +205,7 @@ impl SimpleState for Example {
             //     sprite_sheet: sprite_sheet.clone(),
             //     sprite_number: 0
             // })
-            .with(Physical::new(8.0))
+            .with_physics(8.0)
             .build();
 
         spawn_at(data.world, 0.0, stage.1)
@@ -231,7 +213,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
-            .with(Physical::new(8.0))
+            .with_physics(8.0)
             .build();
 
         spawn_at(data.world, stage.0, stage.1)
@@ -239,7 +221,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
-            .with(Physical::new(8.0))
+            .with_physics(8.0)
             .build();
     }
 }
@@ -267,9 +249,12 @@ fn main() -> amethyst::Result<()> {
             .with_bundle(input_bundle)?
             .with_bundle(TransformBundle::new())?
             .with(PlayerMovementSystem, "player_move", &[])
+            .with(PlayerAttackSystem::new(), "player_attack", &[])
             .with(VelocitySystem, "velocity", &[])
             .with(CameraFollow, "camera_follow", &[])
             .with(RestitutionSystem, "restitution", &["velocity"])
+            .with(RotationSystem, "rotation", &[])
+            .with(AnimationSystem, "animation", &[])
             .with(DebugDrawHitboxes, "debug_hitboxes", &[]);
     let mut game = Application::new("./resources", Example, game_data)?;
 

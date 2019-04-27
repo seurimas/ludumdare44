@@ -6,6 +6,7 @@ use amethyst::{
     assets::*,
     renderer::*,
 };
+use crate::basics::*;
 
 pub fn length(x: f32, y: f32) -> f32 {
     f32::sqrt(x * x + y * y)
@@ -47,6 +48,19 @@ pub fn spawn_at_z(world: &mut World, x: f32, y: f32, z: f32) -> EntityBuilder {
     world.create_entity()
         .with(transform)
         .with(GlobalTransform::default())
+}
+
+pub trait BuilderHelp {
+    fn with_physics(self, size: f32) -> Self;
+}
+
+impl <'s> BuilderHelp for EntityBuilder<'s> {
+    fn with_physics(self, size: f32) -> EntityBuilder<'s> {
+        self
+            .with(Velocity { vx: 0.0, vy: 0.0 })
+            .with(Physical::new(size))
+            .with(Rotation::East)
+    }
 }
 
 pub fn load_texture(world: &mut World, path: String) -> TextureHandle {
