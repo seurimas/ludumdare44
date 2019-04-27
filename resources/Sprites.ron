@@ -1,0 +1,13 @@
+(
+  spritesheet_width: 1024,
+  spritesheet_height: 1024,
+  sprites: [
+    (
+      x: 0,
+      y: 0,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  ],
+)
