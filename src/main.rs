@@ -4,6 +4,7 @@ extern crate specs_derive;
 extern crate rand;
 mod utils;
 mod basics;
+mod physics;
 
 use std::path::Path;
 use amethyst::{
@@ -15,8 +16,10 @@ use amethyst::{
     renderer::*,
     utils::application_root_dir,
 };
+use nalgebra::Matrix4;
 use crate::utils::*;
 use crate::basics::*;
+use crate::physics::*;
 
 const stage: (f32, f32) = (400.0, 300.0);
 
@@ -87,20 +90,6 @@ impl<'s> System<'s> for PlayerMovementSystem {
         }
     }
 }
-struct VelocitySystem;
-impl<'s> System<'s> for VelocitySystem {
-    type SystemData = (
-        WriteStorage<'s, Transform>,
-        ReadStorage<'s, Velocity>,
-        Read<'s, Time>,
-    );
-    fn run(&mut self, (mut transform, velocity, time) : Self::SystemData) {
-        for (mut transform, velocity) in (&mut transform, &velocity).join() {
-            transform.translate_x(velocity.vx * time.delta_seconds());
-            transform.translate_y(velocity.vy * time.delta_seconds());
-        }
-    }
-}
 struct CameraFollow;
 impl<'s> System<'s> for CameraFollow {
     type SystemData = (
@@ -146,47 +135,45 @@ impl<'s> System<'s> for CameraFollow {
         }
     }
 }
-struct RestitutionSystem;
-impl<'s> System<'s> for RestitutionSystem {
+struct DebugDrawHitboxes;
+impl DebugDrawHitboxes {
+    fn draw(&self, hitbox: &Hitbox, lines: &mut DebugLines, matrix: &Matrix4<f32>) {
+        let x = hitbox.offset.0 - hitbox.size;
+        let y = hitbox.offset.1 - hitbox.size;
+        let width = hitbox.size * 2.0;
+        let height = hitbox.size * 2.0;
+        let color = hitbox.debug_color.unwrap_or([1., 1., 1., 1.].into());
+        let bottom_left = [x, y, 0.1].into();
+        let bottom_left = matrix.transform_point(&bottom_left);
+        let bottom_right = [x + width, y, 0.1].into();
+        let bottom_right = matrix.transform_point(&bottom_right);
+        let top_left = [x, y + height, 0.1].into();
+        let top_left = matrix.transform_point(&top_left);
+        let top_right = [x + width, y + height, 0.1].into();
+        let top_right = matrix.transform_point(&top_right);
+        lines.draw_line(bottom_left, bottom_right, color);
+        lines.draw_line(bottom_left, top_left, color);
+        lines.draw_line(top_right, bottom_right, color);
+        lines.draw_line(top_right, top_left, color);
+    }
+}
+impl<'s> System<'s> for DebugDrawHitboxes {
     type SystemData = (
-        WriteStorage<'s, Transform>,
+        Write<'s, DebugLines>,
+        ReadStorage<'s, HitState>,
+        ReadStorage<'s, Transform>,
         ReadStorage<'s, Physical>,
-        Entities<'s>,
     );
-    fn run(&mut self, (mut transform, physical, entities) : Self::SystemData) {
-        let mut obstacles = Vec::new();
-        for (transform, physical, entity) in (&transform, &physical, &entities).join() {
-            obstacles.push((transform.translation().clone(), physical, entity));
-        }
-        for (mut transform, physical, entity) in (&mut transform, &physical, &entities).join() {
-            if physical.is_static {
-                continue;
-            }
-            let mut restitution = (0.0, 0.0);
-            let x = transform.translation().x;
-            let y = transform.translation().y;
-            for (translation, obstacle, obs_entity) in obstacles.iter() {
-                if obs_entity.id() == entity.id() {
-                    println!("HERE");
-                } else if let Some((dx, dy)) = physical.depth(obstacle, (x, y), (translation.x, translation.y)) {
-                    let dir_x = (x - translation.x).signum();
-                    let dir_y = (y - translation.y).signum();
-                    let factor = {
-                        if obstacle.is_static {
-                            1.0
-                        } else {
-                            2.0
-                        }
-                    };
-                    if dy.abs() > dx.abs() {
-                        restitution.0 += dx * dir_x / factor;
-                    } else {
-                        restitution.1 += dy * dir_y / factor;
-                    }
+    fn run(&mut self, (mut lines, hitboxes, transform, physical) : Self::SystemData) {
+        for (hitboxes, transform) in (&hitboxes, &transform).join() {
+            for m_hitbox in hitboxes.get_all().iter() {
+                if let Some(hitbox) = m_hitbox {
+                    self.draw(&hitbox, &mut lines, &transform.matrix())
                 }
             }
-            transform.translate_x(restitution.0);
-            transform.translate_y(restitution.1);
+        }
+        for (physical, transform) in (&physical, &transform).join() {
+            self.draw(&physical.hitbox, &mut lines, &transform.matrix())
         }
     }
 }
@@ -195,11 +182,22 @@ struct Example;
 
 impl SimpleState for Example {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        data.world.add_resource(DebugLines::new().with_capacity(100));
+        data.world.add_resource(DebugLinesParams {
+            line_width: 100.0,
+        });
+
         spawn_at_z(data.world, 0.0, 0.0, 1.0)
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
             .build();
 
         let sprite_sheet = load_spritesheet(data.world, get_resource("Sprites"));
+
+        let mut hitboxes = HitState::new();
+        hitboxes.set(0, 8.0, (-8.0, 0.0));
+        hitboxes.set(1, 8.0, (8.0, 0.0));
+        hitboxes.set(2, 8.0, (0.0, -8.0));
+        hitboxes.set(3, 8.0, (0.0, 8.0));
 
         spawn_at(data.world, stage.0 / 2.0, stage.1 / 2.0)
             .with(SpriteRender {
@@ -208,23 +206,24 @@ impl SimpleState for Example {
             })
             .with(Player::new())
             .with(Velocity { vx: 0.0, vy: 0.0 })
-            .with(Physical { is_static: false, size: 8.0 })
+            .with(Physical::new(8.0))
+            .with(hitboxes)
             .build();
 
         spawn_at(data.world, 0.0, 0.0)
-            .with(SpriteRender {
-                sprite_sheet: sprite_sheet.clone(),
-                sprite_number: 0
-            })
-            .with(Physical { is_static: true, size: 8.0 })
+            // .with(SpriteRender {
+            //     sprite_sheet: sprite_sheet.clone(),
+            //     sprite_number: 0
+            // })
+            .with(Physical::new(8.0))
             .build();
 
         spawn_at(data.world, stage.0, 0.0)
-            .with(SpriteRender {
-                sprite_sheet: sprite_sheet.clone(),
-                sprite_number: 0
-            })
-            .with(Physical { is_static: false, size: 8.0 })
+            // .with(SpriteRender {
+            //     sprite_sheet: sprite_sheet.clone(),
+            //     sprite_number: 0
+            // })
+            .with(Physical::new(8.0))
             .build();
 
         spawn_at(data.world, 0.0, stage.1)
@@ -232,7 +231,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
-            .with(Physical { is_static: true, size: 8.0 })
+            .with(Physical::new(8.0))
             .build();
 
         spawn_at(data.world, stage.0, stage.1)
@@ -240,7 +239,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
-            .with(Physical { is_static: false, size: 8.0 })
+            .with(Physical::new(8.0))
             .build();
     }
 }
@@ -257,7 +256,8 @@ fn main() -> amethyst::Result<()> {
     let pipe = Pipeline::build().with_stage(
         Stage::with_backbuffer()
             .clear_target([0.00196, 0.23726, 0.21765, 1.0], 1.0)
-            .with_pass(DrawFlat2D::new().with_transparency(ColorMask::all(), ALPHA, None)),
+            .with_pass(DrawFlat2D::new().with_transparency(ColorMask::all(), ALPHA, None))
+            .with_pass(DrawDebugLines::<PosColorNorm>::new()),
     );
 
     let game_data =
@@ -269,7 +269,8 @@ fn main() -> amethyst::Result<()> {
             .with(PlayerMovementSystem, "player_move", &[])
             .with(VelocitySystem, "velocity", &[])
             .with(CameraFollow, "camera_follow", &[])
-            .with(RestitutionSystem, "restitution", &["velocity"]);
+            .with(RestitutionSystem, "restitution", &["velocity"])
+            .with(DebugDrawHitboxes, "debug_hitboxes", &[]);
     let mut game = Application::new("./resources", Example, game_data)?;
 
     game.run();
