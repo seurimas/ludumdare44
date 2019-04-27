@@ -6,6 +6,7 @@ mod utils;
 mod basics;
 mod physics;
 mod player;
+mod combat;
 
 use std::path::Path;
 use amethyst::{
@@ -22,6 +23,7 @@ use crate::utils::*;
 use crate::basics::*;
 use crate::physics::*;
 use crate::player::*;
+use crate::combat::*;
 
 const stage: (f32, f32) = (200.0, 150.0);
 
@@ -174,6 +176,7 @@ impl SimpleState for Example {
         data.world.add_resource(DebugLinesParams {
             line_width: 100.0,
         });
+        data.world.register::<StaggerAnimation>();
 
         spawn_at_z(data.world, 0.0, 0.0, 1.0)
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
@@ -204,6 +207,8 @@ impl SimpleState for Example {
             //     sprite_number: 0
             // })
             .with(hitboxes.clone())
+            .with(AnimationController::new())
+            .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
 
@@ -213,6 +218,8 @@ impl SimpleState for Example {
             //     sprite_number: 0
             // })
             .with(hitboxes.clone())
+            .with(AnimationController::new())
+            .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
 
@@ -222,6 +229,8 @@ impl SimpleState for Example {
                 sprite_number: 0
             })
             .with(hitboxes.clone())
+            .with(AnimationController::new())
+            .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
 
@@ -231,6 +240,8 @@ impl SimpleState for Example {
                 sprite_number: 0
             })
             .with(hitboxes.clone())
+            .with(AnimationController::new())
+            .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
     }
@@ -266,7 +277,8 @@ fn main() -> amethyst::Result<()> {
             .with(RotationSystem, "rotation", &[])
             .with(AnimationSystem, "animation", &[])
             .with(DebugDrawHitboxes, "debug_hitboxes", &[])
-            .with(DamageSystem, "damage", &["animation"]);
+            .with(DamageSystem, "damage", &["animation"])
+            .with(DeathSystem, "death", &["damage"]);
     let mut game = Application::new("./resources", Example, game_data)?;
 
     game.run();

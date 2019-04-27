@@ -41,7 +41,7 @@ impl<'s> System<'s> for RestitutionSystem {
             let y = transform.translation().y;
             for (translation, obstacle, obs_entity) in obstacles.iter() {
                 if obs_entity.id() == entity.id() {
-                } else if let Some((dx, dy)) = physical.depth(obstacle, (x, y), (translation.x, translation.y)) {
+                } else if let Some((_, _, dx, dy)) = physical.depth(obstacle, (x, y), (translation.x, translation.y)) {
                     let dir_x = (x - translation.x).signum();
                     let dir_y = (y - translation.y).signum();
                     let factor = {

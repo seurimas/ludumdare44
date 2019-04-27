@@ -12,7 +12,7 @@ pub struct Velocity {
     pub vy: f32,
 }
 
-
+pub type HitboxCollision = (f32, f32, f32, f32);
 
 #[derive(Debug, Copy, Clone)]
 pub struct Hitbox {
@@ -28,12 +28,12 @@ impl Hitbox {
     pub fn new_at(size: f32, offset: (f32, f32)) -> Hitbox {
         Hitbox { size, offset, debug_color: None }
     }
-    pub fn depth(&self, other: &Hitbox, (mx, my): (f32, f32), (ox, oy): (f32, f32)) -> Option<(f32, f32)> {
+    pub fn depth(&self, other: &Hitbox, (mx, my): (f32, f32), (ox, oy): (f32, f32)) -> Option<HitboxCollision> {
         let square_size = self.size + other.size;
         let dx = (ox + other.offset.0) - (mx + self.offset.0);
         let dy = (oy + other.offset.1) - (my + self.offset.1);
         if dx.abs() < square_size && dy.abs() < square_size {
-            Some((square_size - dx.abs(), square_size - dy.abs()))
+            Some((dx, dy, square_size - dx.abs(), square_size - dy.abs()))
         } else {
             None
         }
@@ -54,7 +54,7 @@ impl Physical {
     pub fn new_static(size: f32) -> Physical {
         Physical { hitbox: Hitbox::new(size), is_static: true }
     }
-    pub fn depth(&self, other: &Physical, my_pos: (f32, f32), other_pos: (f32, f32)) -> Option<(f32, f32)> {
+    pub fn depth(&self, other: &Physical, my_pos: (f32, f32), other_pos: (f32, f32)) -> Option<HitboxCollision> {
         self.hitbox.depth(&other.hitbox, my_pos, other_pos)
     }
 }
@@ -188,6 +188,35 @@ impl HitboxAnimation {
             progress_left -= frame.duration;
         }
         found_frame
+    }
+}
+pub trait HitboxCollisionSystem<'s>: System<'s> {
+    type ExtraData: SystemData<'s>;
+    fn source() -> usize;
+    fn target() -> usize;
+    fn collide(&self, collision: HitboxCollision, entity_a: Entity, entity_b: Entity, transforms: &WriteStorage<'s, Transform>, extra: &mut Self::ExtraData);
+    fn check_collisions(&mut self,
+        (hitboxes, transforms, entities, mut extra) : (ReadStorage<'s, HitState>, WriteStorage<'s, Transform>, Entities<'s>, Self::ExtraData)
+    ) {
+        for (hitbox_a, transform_a, entity_a) in (&hitboxes, &transforms, &entities).join() {
+            if hitbox_a.hitboxes[Self::source()].is_none() {
+                continue;
+            }
+            for (hitbox_b, transform_b, entity_b) in (&hitboxes, &transforms, &entities).join() {
+                if entity_a.id() == entity_b.id() {
+                } else if hitbox_b.hitboxes[Self::target()].is_none() {
+                } else if let (Some(attack), Some(hit)) =
+                    (hitbox_a.hitboxes[Self::source()], hitbox_b.hitboxes[Self::target()]) {
+                    let mx = transform_a.translation().x;
+                    let my = transform_a.translation().y;
+                    let ox = transform_b.translation().x;
+                    let oy = transform_b.translation().y;
+                    if let Some(collision) = attack.depth(&hit, (mx, my), (ox, oy)) {
+                        self.collide(collision, entity_a, entity_b, &transforms, &mut extra);
+                    }
+                }
+            }
+        }
     }
 }
 #[derive(Component, Debug)]
