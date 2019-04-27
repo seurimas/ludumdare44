@@ -6,6 +6,7 @@ use amethyst::{
     input::*,
 };
 use crate::basics::*;
+use std::marker::PhantomData;
 
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
@@ -24,19 +25,44 @@ impl Player {
     }
 }
 
-pub struct PlayerMovementSystem;
+pub struct PlayerMovementSystem {
+    idle: HitboxAnimation,
+    walking: HitboxAnimation,
+}
+impl PlayerMovementSystem {
+    pub fn new() -> PlayerMovementSystem {
+        let mut idle = HitboxAnimation::new();
+        let frame = idle.add_frame(1.0);
+        idle.set_sprite(frame, 1);
+
+        let mut walking = HitboxAnimation::new();
+        let frame = walking.add_frame(0.1);
+        walking.set_sprite(frame, 1);
+        let frame = walking.add_frame(0.1);
+        walking.set_sprite(frame, 5);
+        let frame = walking.add_frame(0.1);
+        walking.set_sprite(frame, 1);
+        let frame = walking.add_frame(0.1);
+        walking.set_sprite(frame, 6);
+        PlayerMovementSystem {
+            idle,
+            walking,
+        }
+    }
+}
 impl<'s> System<'s> for PlayerMovementSystem {
     type SystemData = (
         ReadStorage<'s, Player>,
         WriteStorage<'s, Velocity>,
         WriteStorage<'s, Rotation>,
+        WriteStorage<'s, AnimationController>,
         Read<'s, InputHandler<String, String>>,
         Read<'s, Time>,
         Entities<'s>,
     );
-    fn run(&mut self, (players, mut velocities, mut rotations, input, time, entities) : Self::SystemData) {
+    fn run(&mut self, (players, mut velocities, mut rotations, mut animations, input, time, entities) : Self::SystemData) {
         let deacc_factor = 3.0;
-        for (player, mut velocity, entity) in (&players, &mut velocities, &entities).join() {
+        for (player, mut velocity, mut animation, entity) in (&players, &mut velocities, &mut animations, &entities).join() {
             let x_tilt = input.axis_value("leftright");
             let y_tilt = input.axis_value("updown");
             if let (Some(x_tilt), Some(y_tilt)) = (x_tilt, y_tilt) {
@@ -102,13 +128,22 @@ impl<'s> System<'s> for PlayerMovementSystem {
 
                         }
                     }
+                    if animation.state() == AnimationState::Idle {
+                        animation.start(self.walking.clone(), AnimationState::Walking);
+                    }
+                } else {
+                    if animation.state() == AnimationState::Walking || !animation.active() {
+                        animation.start(self.idle.clone(), AnimationState::Idle);
+                    }
                 }
             }
         }
     }
 }
 
-const PLAYER_ATTACK: usize = 0;
+pub const ENEMY_HITTABLE_BOX: usize = 1;
+pub const PLAYER_ATTACK_BOX: usize = 2;
+pub const PLAYER_HITTABLE_BOX: usize = 3;
 
 pub struct PlayerAttackSystem {
     attacks: Vec<HitboxAnimation>,
@@ -117,10 +152,14 @@ impl PlayerAttackSystem {
     pub fn new() -> PlayerAttackSystem {
         let mut attacks = Vec::new();
         let mut base_attack = HitboxAnimation::new();
-        let frame = base_attack.add_frame((0.0, 0.0), 0.25);
-        base_attack.set_hitbox(frame, PLAYER_ATTACK, Hitbox::new_at(8.0, (8.0, 0.0)));
-        let frame = base_attack.add_frame((0.0, 0.0), 0.25);
-        base_attack.set_hitbox(frame, PLAYER_ATTACK, Hitbox::new_at(4.0, (10.0, 0.0)));
+        let frame = base_attack.add_frame_with_velocity((0.0, 0.0), 0.1);
+        base_attack.set_sprite(frame, 2);
+        let frame = base_attack.add_frame_with_velocity((0.0, 0.0), 0.2);
+        base_attack.set_hitbox(frame, PLAYER_ATTACK_BOX, Hitbox::new_at(8.0, (8.0, 0.0)));
+        base_attack.set_sprite(frame, 3);
+        let frame = base_attack.add_frame_with_velocity((0.0, 0.0), 0.2);
+        base_attack.set_hitbox(frame, PLAYER_ATTACK_BOX, Hitbox::new_at(4.0, (10.0, 0.0)));
+        base_attack.set_sprite(frame, 4);
         attacks.push(base_attack);
         PlayerAttackSystem {
             attacks,
@@ -131,14 +170,78 @@ impl<'s> System<'s> for PlayerAttackSystem {
     type SystemData = (
         ReadStorage<'s, Player>,
         WriteStorage<'s, AnimationController>,
+        WriteStorage<'s, HitState>,
         Read<'s, InputHandler<String, String>>,
     );
-    fn run(&mut self, (player, mut animation_controller, input) : Self::SystemData) {
+    fn run(&mut self, (player, mut animation_controller, mut hitstate, input) : Self::SystemData) {
         if let Some(true) = input.action_is_down("attack") {
             for (player, mut animation_controller) in (&player, &mut animation_controller).join() {
-                animation_controller.start(self.attacks[0].clone());
-                println!("Attacking");
+                animation_controller.start(self.attacks[0].clone(), AnimationState::Attacking);
             }
         }
+        for (player, mut hitstate, animation_controller) in (&player, &mut hitstate, &animation_controller).join() {
+            if animation_controller.state() != AnimationState::Attacking {
+                hitstate.clear(PLAYER_ATTACK_BOX);
+            }
+        }
+    }
+}
+pub trait HitboxCollisionSystem<'s>: System<'s> {
+    type ExtraData: SystemData<'s>;
+    fn source() -> usize;
+    fn target() -> usize;
+    fn collide(&self, depth: (f32, f32), entity_a: Entity, entity_b: Entity, extra: &mut Self::ExtraData);
+    fn check_collisions(&mut self,
+        (hitboxes, transforms, entities, mut extra) : (ReadStorage<'s, HitState>, ReadStorage<'s, Transform>, Entities<'s>, Self::ExtraData)
+    ) {
+        for (hitbox_a, transform_a, entity_a) in (&hitboxes, &transforms, &entities).join() {
+            if hitbox_a.hitboxes[Self::source()].is_none() {
+                continue;
+            }
+            for (hitbox_b, transform_b, entity_b) in (&hitboxes, &transforms, &entities).join() {
+                if entity_a.id() == entity_b.id() {
+                } else if hitbox_b.hitboxes[Self::target()].is_none() {
+                } else if let (Some(attack), Some(hit)) =
+                    (hitbox_a.hitboxes[Self::source()], hitbox_b.hitboxes[Self::target()]) {
+                    let mx = transform_a.translation().x;
+                    let my = transform_a.translation().y;
+                    let ox = transform_b.translation().x;
+                    let oy = transform_b.translation().y;
+                    if let Some(collision) = attack.depth(&hit, (mx, my), (ox, oy)) {
+                        self.collide(collision, entity_a, entity_b, &mut extra);
+                    }
+                }
+            }
+        }
+    }
+}
+pub struct DamageSystem;
+impl<'s> System<'s> for DamageSystem {
+    type SystemData = (
+        ReadStorage<'s, HitState>,
+        ReadStorage<'s, Transform>,
+        Entities<'s>,
+        <Self as HitboxCollisionSystem<'s>>::ExtraData,
+    );
+    fn run(&mut self, system_data: Self::SystemData) {
+        println!("Checking collisions");
+        self.check_collisions(system_data);
+    }
+}
+impl<'s> HitboxCollisionSystem<'s> for DamageSystem {
+    type ExtraData = (
+        WriteStorage<'s, AnimationController>,
+        WriteStorage<'s, Rotation>,
+    );
+    fn collide(&self, depth: (f32, f32), entity_a: Entity, entity_b: Entity, extra: &mut Self::ExtraData) {
+        let animations = &mut extra.0;
+        let rotation = &mut extra.1;
+        rotation.insert(entity_b, Rotation::North);
+    }
+    fn source() -> usize {
+        PLAYER_ATTACK_BOX
+    }
+    fn target() -> usize {
+        PLAYER_HITTABLE_BOX
     }
 }

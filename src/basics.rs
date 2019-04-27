@@ -61,11 +61,11 @@ impl Physical {
 
 pub const HITSTATE_SIZE: usize = 16;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 #[storage(VecStorage)]
 pub struct HitState {
-    hitboxes: [Option<Hitbox>; HITSTATE_SIZE],
-    bounding: Hitbox,
+    pub hitboxes: [Option<Hitbox>; HITSTATE_SIZE],
+    pub bounding: Hitbox,
 }
 
 impl HitState {
@@ -83,6 +83,10 @@ impl HitState {
         self.hitboxes[index] = Some(Hitbox::new_at(size, offset));
         self.recalculate_bounding();
     }
+    pub fn clear(&mut self, index: usize) {
+        self.hitboxes[index] = None;
+        self.recalculate_bounding();
+    }
     pub fn get_all(&self) -> &[Option<Hitbox>; HITSTATE_SIZE] {
         &self.hitboxes
     }
@@ -90,13 +94,22 @@ impl HitState {
         if let Some(extent) = self.hitboxes
             .iter()
             .fold(None, |extent, next| match (extent, next) {
-                (None, Some(next)) => Some(next.offset.0.abs().max(next.offset.1.abs())),
-                (Some(y), Some(next)) => Some((next.offset.0.abs().max(next.offset.1.abs())).max(y)),
+                (None, Some(next)) => Some(
+                    next.offset.0.abs().max(next.offset.1.abs()) + next.size),
+                (Some(y), Some(next)) => Some(
+                    y.max(next.offset.0.abs().max(next.offset.1.abs()) + next.size)),
                 _ => extent,
             }) {
             self.bounding.size = extent;
         }
     }
+}
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AnimationState {
+    Idle,
+    Walking,
+    Attacking,
+    Staggered,
 }
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
@@ -128,7 +141,7 @@ impl Rotation {
 #[derive(Debug, Copy, Clone)]
 pub struct AnimationFrame {
     pub hitboxes: [Option<Hitbox>; HITSTATE_SIZE],
-    pub velocity: (f32, f32),
+    pub velocity: Option<(f32, f32)>,
     pub sprite: Option<usize>,
     pub duration: f32,
 }
@@ -140,10 +153,19 @@ impl HitboxAnimation {
     pub fn new() -> HitboxAnimation {
         HitboxAnimation { frames: Vec::new() }
     }
-    pub fn add_frame(&mut self, velocity: (f32, f32), duration: f32) -> usize {
+    pub fn add_frame(&mut self, duration: f32) -> usize {
         self.frames.push(AnimationFrame {
             hitboxes: Default::default(),
-            velocity,
+            velocity: None,
+            sprite: None,
+            duration,
+        });
+        self.frames.len() - 1
+    }
+    pub fn add_frame_with_velocity(&mut self, velocity: (f32, f32), duration: f32) -> usize {
+        self.frames.push(AnimationFrame {
+            hitboxes: Default::default(),
+            velocity: Some(velocity),
             sprite: None,
             duration,
         });
@@ -173,28 +195,42 @@ impl HitboxAnimation {
 pub struct AnimationController {
     progress: f32,
     animation: Option<HitboxAnimation>,
+    state: AnimationState,
 }
 impl AnimationController {
     pub fn new() -> AnimationController {
         AnimationController {
             progress: 0.0,
             animation: None,
+            state: AnimationState::Idle,
         }
     }
-    pub fn start(&mut self, animation: HitboxAnimation) {
+    pub fn start(&mut self, animation: HitboxAnimation, state: AnimationState) {
         self.animation = Some(animation);
         self.progress = 0.0;
+        self.state = state;
     }
     pub fn step(&mut self, delta_seconds: f32) -> Option<AnimationFrame> {
         self.progress += delta_seconds;
         if let Some(animation) = &self.animation {
-            animation.get_frame_at(self.progress)
+            let frame = animation.get_frame_at(self.progress);
+            if let Some(frame) = frame {
+                Some(frame)
+            } else {
+                self.animation = None;
+                self.state = AnimationState::Idle;
+                None
+            }
         } else {
             self.animation = None;
+            self.state = AnimationState::Idle;
             None
         }
     }
     pub fn active(&self) -> bool {
         !self.animation.is_none()
+    }
+    pub fn state(&self) -> AnimationState {
+        self.state
     }
 }

@@ -23,7 +23,7 @@ use crate::basics::*;
 use crate::physics::*;
 use crate::player::*;
 
-const stage: (f32, f32) = (400.0, 300.0);
+const stage: (f32, f32) = (200.0, 150.0);
 
 struct EmptySystem;
 impl<'s> System<'s> for EmptySystem {
@@ -113,6 +113,7 @@ impl<'s> System<'s> for DebugDrawHitboxes {
                     self.draw(&hitbox, &mut lines, &transform.translation())
                 }
             }
+            self.draw(&hitboxes.bounding, &mut lines, &transform.translation())
         }
         for (physical, transform) in (&physical, &transform).join() {
             self.draw(&physical.hitbox, &mut lines, &transform.translation())
@@ -130,7 +131,7 @@ impl<'s> System<'s> for AnimationSystem {
         Read<'s, Time>,
     );
     fn run(&mut self, (mut animation, mut hitstate, mut velocity, mut sprite, rotation, time) : Self::SystemData) {
-        for (animation, hitstate, mut velocity, sprite, rotation) in (&mut animation, &mut hitstate, &mut velocity, &mut sprite, &rotation).join() {
+        for (animation, hitstate, mut velocity, mut sprite, rotation) in (&mut animation, &mut hitstate, &mut velocity, &mut sprite, &rotation).join() {
             if animation.active() {
                 let frame = animation.step(time.delta_seconds());
                 if let Some(frame) = frame {
@@ -139,9 +140,14 @@ impl<'s> System<'s> for AnimationSystem {
                             hitstate.set(i, hitbox.size, rotation.rotate(hitbox.offset));
                         }
                     }
-                    let (vx, vy) = rotation.rotate(frame.velocity);
-                    velocity.vx = vx;
-                    velocity.vy = vy;
+                    if let Some(frame_velocity) = frame.velocity {
+                        let (vx, vy) = rotation.rotate(frame_velocity);
+                        velocity.vx = vx;
+                        velocity.vy = vy;
+                    }
+                        if let Some(sprite_id) = frame.sprite {
+                        sprite.sprite_number = sprite_id;
+                    }
                 }
             }
         }
@@ -176,27 +182,28 @@ impl SimpleState for Example {
         let sprite_sheet = load_spritesheet(data.world, get_resource("Sprites"));
 
         let mut hitboxes = HitState::new();
-        hitboxes.set(0, 8.0, (-8.0, 0.0));
-        hitboxes.set(1, 8.0, (8.0, 0.0));
-        hitboxes.set(2, 8.0, (0.0, -8.0));
-        hitboxes.set(3, 8.0, (0.0, 8.0));
+        hitboxes.set(ENEMY_HITTABLE_BOX, 8.0, (0.0, 0.0));
 
         spawn_at(data.world, stage.0 / 2.0, stage.1 / 2.0)
             .with(SpriteRender {
                 sprite_sheet: sprite_sheet.clone(),
-                sprite_number: 0
+                sprite_number: 1
             })
             .with(Player::new())
             .with(hitboxes)
             .with(AnimationController::new())
-            .with_physics(8.0)
+            .with_physics(4.0)
             .build();
+
+        let mut hitboxes = HitState::new();
+        hitboxes.set(PLAYER_HITTABLE_BOX, 8.0, (0.0, 0.0));
 
         spawn_at(data.world, 0.0, 0.0)
             // .with(SpriteRender {
             //     sprite_sheet: sprite_sheet.clone(),
             //     sprite_number: 0
             // })
+            .with(hitboxes.clone())
             .with_physics(8.0)
             .build();
 
@@ -205,6 +212,7 @@ impl SimpleState for Example {
             //     sprite_sheet: sprite_sheet.clone(),
             //     sprite_number: 0
             // })
+            .with(hitboxes.clone())
             .with_physics(8.0)
             .build();
 
@@ -213,6 +221,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
+            .with(hitboxes.clone())
             .with_physics(8.0)
             .build();
 
@@ -221,6 +230,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
+            .with(hitboxes.clone())
             .with_physics(8.0)
             .build();
     }
@@ -248,14 +258,15 @@ fn main() -> amethyst::Result<()> {
                 .with_sprite_sheet_processor())?
             .with_bundle(input_bundle)?
             .with_bundle(TransformBundle::new())?
-            .with(PlayerMovementSystem, "player_move", &[])
+            .with(PlayerMovementSystem::new(), "player_move", &[])
             .with(PlayerAttackSystem::new(), "player_attack", &[])
             .with(VelocitySystem, "velocity", &[])
             .with(CameraFollow, "camera_follow", &[])
             .with(RestitutionSystem, "restitution", &["velocity"])
             .with(RotationSystem, "rotation", &[])
             .with(AnimationSystem, "animation", &[])
-            .with(DebugDrawHitboxes, "debug_hitboxes", &[]);
+            .with(DebugDrawHitboxes, "debug_hitboxes", &[])
+            .with(DamageSystem, "damage", &["animation"]);
     let mut game = Application::new("./resources", Example, game_data)?;
 
     game.run();
