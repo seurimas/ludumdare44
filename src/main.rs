@@ -18,7 +18,7 @@ use amethyst::{
 use crate::utils::*;
 use crate::basics::*;
 
-const stage: (f32, f32) = (800.0, 600.0);
+const stage: (f32, f32) = (400.0, 300.0);
 
 struct EmptySystem;
 impl<'s> System<'s> for EmptySystem {
@@ -146,6 +146,50 @@ impl<'s> System<'s> for CameraFollow {
         }
     }
 }
+struct RestitutionSystem;
+impl<'s> System<'s> for RestitutionSystem {
+    type SystemData = (
+        WriteStorage<'s, Transform>,
+        ReadStorage<'s, Physical>,
+        Entities<'s>,
+    );
+    fn run(&mut self, (mut transform, physical, entities) : Self::SystemData) {
+        let mut obstacles = Vec::new();
+        for (transform, physical, entity) in (&transform, &physical, &entities).join() {
+            obstacles.push((transform.translation().clone(), physical, entity));
+        }
+        for (mut transform, physical, entity) in (&mut transform, &physical, &entities).join() {
+            if physical.is_static {
+                continue;
+            }
+            let mut restitution = (0.0, 0.0);
+            let x = transform.translation().x;
+            let y = transform.translation().y;
+            for (translation, obstacle, obs_entity) in obstacles.iter() {
+                if obs_entity.id() == entity.id() {
+                    println!("HERE");
+                } else if let Some((dx, dy)) = physical.depth(obstacle, (x, y), (translation.x, translation.y)) {
+                    let dir_x = (x - translation.x).signum();
+                    let dir_y = (y - translation.y).signum();
+                    let factor = {
+                        if obstacle.is_static {
+                            1.0
+                        } else {
+                            2.0
+                        }
+                    };
+                    if dy.abs() > dx.abs() {
+                        restitution.0 += dx * dir_x / factor;
+                    } else {
+                        restitution.1 += dy * dir_y / factor;
+                    }
+                }
+            }
+            transform.translate_x(restitution.0);
+            transform.translate_y(restitution.1);
+        }
+    }
+}
 
 struct Example;
 
@@ -164,6 +208,7 @@ impl SimpleState for Example {
             })
             .with(Player::new())
             .with(Velocity { vx: 0.0, vy: 0.0 })
+            .with(Physical { is_static: false, size: 8.0 })
             .build();
 
         spawn_at(data.world, 0.0, 0.0)
@@ -171,6 +216,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
+            .with(Physical { is_static: true, size: 8.0 })
             .build();
 
         spawn_at(data.world, stage.0, 0.0)
@@ -178,6 +224,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
+            .with(Physical { is_static: false, size: 8.0 })
             .build();
 
         spawn_at(data.world, 0.0, stage.1)
@@ -185,6 +232,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
+            .with(Physical { is_static: true, size: 8.0 })
             .build();
 
         spawn_at(data.world, stage.0, stage.1)
@@ -192,6 +240,7 @@ impl SimpleState for Example {
                 sprite_sheet: sprite_sheet.clone(),
                 sprite_number: 0
             })
+            .with(Physical { is_static: false, size: 8.0 })
             .build();
     }
 }
@@ -219,7 +268,8 @@ fn main() -> amethyst::Result<()> {
             .with_bundle(TransformBundle::new())?
             .with(PlayerMovementSystem, "player_move", &[])
             .with(VelocitySystem, "velocity", &[])
-            .with(CameraFollow, "camera_follow", &[]);
+            .with(CameraFollow, "camera_follow", &[])
+            .with(RestitutionSystem, "restitution", &["velocity"]);
     let mut game = Application::new("./resources", Example, game_data)?;
 
     game.run();

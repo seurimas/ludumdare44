@@ -33,3 +33,16 @@ pub struct Physical {
     pub size: f32,
     pub is_static: bool,
 }
+
+impl Physical {
+    pub fn depth(&self, other: &Physical, (mx, my): (f32, f32), (ox, oy): (f32, f32)) -> Option<(f32, f32)> {
+        let square_size = self.size + other.size;
+        let dx = ox - mx;
+        let dy = oy - my;
+        if dx.abs() < square_size && dy.abs() < square_size {
+            Some((square_size - dx.abs(), square_size - dy.abs()))
+        } else {
+            None
+        }
+    }
+}
