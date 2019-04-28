@@ -1,12 +1,15 @@
 use amethyst::{
     prelude::*,
     ecs::*,
-    renderer::Rgba,
+    renderer::*,
     core::*,
     input::*,
 };
 use crate::basics::*;
+use crate::combat::*;
 use crate::utils::*;
+
+const MAX_HEARTS: usize = 10;
 
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
@@ -14,13 +17,48 @@ pub struct Player {
     pub can_move: bool,
     pub walk_accel: f32,
     pub walk_speed: f32,
+    pub hearts: [Entity; MAX_HEARTS],
 }
 impl Player {
-    pub fn new() -> Player {
+    pub fn new(hearts: [Entity; MAX_HEARTS]) -> Player {
         Player {
             can_move: true,
             walk_accel: 400.0,
             walk_speed: 100.0,
+            hearts,
+        }
+    }
+}
+pub struct PlayerHeartSystem;
+impl<'s> System<'s> for PlayerHeartSystem {
+    type SystemData = (
+        ReadStorage<'s, Player>,
+        ReadStorage<'s, Health>,
+        WriteStorage<'s, SpriteRender>,
+    );
+    fn run(&mut self, (player, health, mut sprite) : Self::SystemData) {
+        for (player, health) in (&player, &health).join() {
+            let hearts = (health.max / 2).max(0) as usize;
+            let full_hearts = (health.left / 2).max(0) as usize;
+            let half_hearts = ((health.left + 1) / 2).max(0) as usize;
+            for i in 0..hearts {
+                if let Some(mut sprite) = sprite.get_mut(player.hearts[i]) {
+                    sprite.sprite_number = {
+                        if i < full_hearts {
+                            23
+                        } else if i < half_hearts {
+                            24
+                        } else {
+                            25
+                        }
+                    };
+                }
+            }
+            for i in hearts..MAX_HEARTS {
+                if let Some(mut sprite) = sprite.get_mut(player.hearts[i]) {
+                    sprite.sprite_number = 27;
+                }
+            }
         }
     }
 }

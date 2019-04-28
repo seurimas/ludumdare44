@@ -8,6 +8,7 @@ mod physics;
 mod player;
 mod combat;
 mod enemies;
+mod ui;
 
 use std::path::Path;
 use amethyst::{
@@ -17,6 +18,7 @@ use amethyst::{
     core::transform::*,
     core::*,
     renderer::*,
+    assets::*,
     utils::application_root_dir,
 };
 use nalgebra::{ Vector3, Point3};
@@ -26,6 +28,7 @@ use crate::physics::*;
 use crate::player::*;
 use crate::combat::*;
 use crate::enemies::*;
+use crate::ui::*;
 
 const stage: (f32, f32) = (200.0, 150.0);
 
@@ -175,31 +178,90 @@ impl<'s> System<'s> for RotationSystem {
     }
 }
 
-struct Example;
-
-impl SimpleState for Example {
+struct InitializingGameState {
+    progress: ProgressCounter,
+    sprite_sheet: Option<SpriteSheetHandle>,
+}
+impl InitializingGameState {
+    fn new() -> InitializingGameState {
+        InitializingGameState {
+            progress: ProgressCounter::new(),
+            sprite_sheet: None,
+        }
+    }
+}
+impl SimpleState for InitializingGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         data.world.add_resource(DebugLines::new().with_capacity(100));
         data.world.add_resource(DebugLinesParams {
             line_width: 100.0,
         });
         data.world.register::<StaggerAnimation>();
+        self.sprite_sheet = Some(load_spritesheet(data.world, get_resource("Sprites"), &mut self.progress));
+    }
+    fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+        match self.progress.complete() {
+            Completion::Complete => {
+                Trans::Switch(Box::new(MainGameState {
+                    sprite_sheet: self.sprite_sheet.clone().unwrap(),
+                }))
+            },
+            _ => Trans::None
+        }
+    }
+}
 
+struct GameOverState {
+    sprite_sheet: SpriteSheetHandle,
+}
+impl SimpleState for GameOverState {
+    fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        data.world.delete_all();
+        spawn_at_z(data.world, 0.0, 0.0, 1.0)
+            .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
+            .build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 15, Anchor::Middle, (100.0, 100.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 16, Anchor::Middle, (116.0, 100.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 17, Anchor::Middle, (132.0, 100.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 18, Anchor::Middle, (148.0, 100.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 19, Anchor::Middle, (100.0, 84.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 20, Anchor::Middle, (116.0, 84.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 21, Anchor::Middle, (132.0, 84.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), 22, Anchor::Middle, (148.0, 84.0)).build();
+    }
+}
+
+struct MainGameState {
+    sprite_sheet: SpriteSheetHandle,
+}
+impl SimpleState for MainGameState {
+    fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        data.world.delete_all();
         spawn_at_z(data.world, 0.0, 0.0, 1.0)
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
             .build();
 
-        let sprite_sheet = load_spritesheet(data.world, get_resource("Sprites"));
-
         let mut hitboxes = HitState::new();
         hitboxes.set(ENEMY_HITTABLE_BOX, 8.0, (0.0, 0.0));
+        let hearts = [
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (8.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (24.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (40.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (56.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (72.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (88.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (104.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (120.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (136.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (152.0, stage.1 - 8.0)).build(),
+        ];
 
         spawn_at(data.world, stage.0 / 2.0, stage.1 / 2.0)
             .with(SpriteRender {
-                sprite_sheet: sprite_sheet.clone(),
+                sprite_sheet: self.sprite_sheet.clone(),
                 sprite_number: 1
             })
-            .with(Player::new())
+            .with(Player::new(hearts))
             .with(hitboxes)
             .with(AnimationController::new())
             .with(Health { left: 8, max: 8 })
@@ -209,15 +271,15 @@ impl SimpleState for Example {
         let mut hitboxes = HitState::new();
         hitboxes.set(PLAYER_HITTABLE_BOX, 8.0, (0.0, 0.0));
 
-        spawn_goblin(data.world, sprite_sheet.clone(), 0.0, 0.0)
+        spawn_goblin(data.world, self.sprite_sheet.clone(), 0.0, 0.0)
             .build();
 
-        spawn_goblin(data.world, sprite_sheet.clone(), stage.0, 0.0)
+        spawn_goblin(data.world, self.sprite_sheet.clone(), stage.0, 0.0)
             .build();
 
         spawn_at(data.world, 0.0, stage.1)
             .with(SpriteRender {
-                sprite_sheet: sprite_sheet.clone(),
+                sprite_sheet: self.sprite_sheet.clone(),
                 sprite_number: 0
             })
             .with(hitboxes.clone())
@@ -228,7 +290,7 @@ impl SimpleState for Example {
 
         spawn_at(data.world, stage.0, stage.1)
             .with(SpriteRender {
-                sprite_sheet: sprite_sheet.clone(),
+                sprite_sheet: self.sprite_sheet.clone(),
                 sprite_number: 0
             })
             .with(hitboxes.clone())
@@ -236,6 +298,22 @@ impl SimpleState for Example {
             .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
+    }
+    fn update(&mut self, mut data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+        let player = data.world.exec(|player: ReadStorage< Player>| {
+            let mut alive = false;
+            for (player) in (&player).join() {
+                alive = true;
+            }
+            alive
+        });
+        if player {
+            Trans::None
+        } else {
+            Trans::Switch(Box::new(GameOverState {
+                sprite_sheet: self.sprite_sheet.clone(),
+            }))
+        }
     }
 }
 
@@ -266,16 +344,18 @@ fn main() -> amethyst::Result<()> {
             .with(PlayerAttackSystem::new(), "player_attack", &[])
             .with(VelocitySystem, "velocity", &[])
             .with(CameraFollow, "camera_follow", &[])
+            .with(UiSpriteSystem, "ui_sprite", &["camera_follow", "transform_system"])
             .with(RestitutionSystem, "restitution", &["velocity"])
             .with(RotationSystem, "rotation", &[])
             .with(AnimationSystem, "animation", &[])
             .with(DebugDrawHitboxes, "debug_hitboxes", &[])
+            .with(PlayerHeartSystem, "hearts", &[])
             .with(PlayerDamageSystem, "player_damage", &["animation"])
             .with(EnemyDamageSystem, "enemy_damage", &["animation"])
             .with(SightSystem, "sight", &["animation"])
             .with(AimingSystem, "aim", &["sight"])
             .with(DeathSystem, "death", &["player_damage", "enemy_damage"]);
-    let mut game = Application::new("./resources", Example, game_data)?;
+    let mut game = Application::new("./resources", InitializingGameState::new(), game_data)?;
 
     game.run();
 

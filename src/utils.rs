@@ -32,7 +32,7 @@ pub fn get_resource(str: &str) -> String {
     )
 }
 
-fn at(x: f32, y: f32) -> Transform {
+pub fn at(x: f32, y: f32) -> Transform {
     let mut transform = Transform::default();
     transform.set_x(x);
     transform.set_y(y);
@@ -66,26 +66,26 @@ impl <'s> BuilderHelp for EntityBuilder<'s> {
     }
 }
 
-pub fn load_texture(world: &mut World, path: String) -> TextureHandle {
+pub fn load_texture<'a>(world: &mut World, path: String, progress: &'a mut ProgressCounter) -> TextureHandle {
     let loader = world.read_resource::<Loader>();
     let texture_storage = world.read_resource::<AssetStorage<Texture>>();
     loader.load(
         path,
         PngFormat,
         TextureMetadata::srgb_scale(),
-        (),
+        progress,
         &texture_storage,
     )
 }
-pub fn load_spritesheet(world: &mut World, path: String) -> SpriteSheetHandle {
-    let texture_handle = load_texture(world, format!("{}.png", path));
+pub fn load_spritesheet<'a>(world: &mut World, path: String, progress: &'a mut ProgressCounter) -> SpriteSheetHandle {
+    let texture_handle = load_texture(world, format!("{}.png", path), progress);
     let loader = world.read_resource::<Loader>();
     let sprite_sheet_store = world.read_resource::<AssetStorage<SpriteSheet>>();
     loader.load(
         format!("{}.ron", path), // Here we load the associated ron file
         SpriteSheetFormat,
         texture_handle, // We pass it the handle of the texture we want it to use
-        (),
+        progress,
         &sprite_sheet_store,
     )
 }
