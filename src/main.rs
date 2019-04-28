@@ -9,6 +9,7 @@ mod player;
 mod combat;
 mod enemies;
 mod sprites;
+mod world;
 mod ui;
 
 use std::path::Path;
@@ -30,6 +31,7 @@ use crate::player::*;
 use crate::combat::*;
 use crate::enemies::*;
 use crate::sprites::*;
+use crate::world::*;
 use crate::ui::*;
 
 struct EmptySystem;
@@ -87,10 +89,10 @@ impl<'s> System<'s> for CameraFollow {
 struct DebugDrawHitboxes;
 impl DebugDrawHitboxes {
     fn draw(&self, hitbox: &Hitbox, lines: &mut DebugLines, offset: &Vector3<f32>) {
-        let x = hitbox.offset.0 - hitbox.size;
-        let y = hitbox.offset.1 - hitbox.size;
-        let width = hitbox.size * 2.0;
-        let height = hitbox.size * 2.0;
+        let x = hitbox.offset.0 - hitbox.width / 2.0;
+        let y = hitbox.offset.1 - hitbox.height / 2.0;
+        let width = hitbox.width;
+        let height = hitbox.height;
         let color = hitbox.debug_color.unwrap_or([1., 1., 1., 1.].into());
         let bottom_left: Point3<f32> = [x, y, 0.1].into();
         let bottom_left = bottom_left + offset;
@@ -145,7 +147,7 @@ impl<'s> System<'s> for AnimationSystem {
                 if let Some(frame) = frame {
                     for i in 0..HITSTATE_SIZE {
                         if let Some(hitbox) = frame.hitboxes[i] {
-                            hitstate.set(i, hitbox.size, hitbox.offset);
+                            hitstate.set(i, hitbox.width, hitbox.height, hitbox.offset);
                         }
                     }
                     if let Some(frame_velocity) = frame.velocity {
@@ -242,7 +244,7 @@ impl SimpleState for MainGameState {
             .build();
 
         let mut hitboxes = HitState::new();
-        hitboxes.set(ENEMY_HITTABLE_BOX, 8.0, (0.0, 0.0));
+        hitboxes.set(ENEMY_HITTABLE_BOX, 16.0, 16.0, (0.0, 0.0));
         let hearts = [
             draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (8.0, 0.0)).build(),
             draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (24.0, 0.0)).build(),
@@ -257,10 +259,7 @@ impl SimpleState for MainGameState {
         ];
 
         spawn_at(data.world, stage.0 / 2.0, stage.1 / 2.0)
-            .with(SpriteRender {
-                sprite_sheet: self.sprite_sheet.clone(),
-                sprite_number: PLAYER_IDLE
-            })
+            .with_sprite(self.sprite_sheet.clone(), PLAYER_IDLE)
             .with(Player::new(hearts))
             .with(hitboxes)
             .with(AnimationController::new())
@@ -268,8 +267,14 @@ impl SimpleState for MainGameState {
             .with_physics(4.0)
             .build();
 
+        fill_world(data.world, &self.sprite_sheet, 32, 32, FLOOR_EMPTY);
+        draw_wall(data.world, &self.sprite_sheet, (0, 0), (31, 1), WALL);
+        draw_wall(data.world, &self.sprite_sheet, (0, 0), (1, 31), WALL);
+        draw_wall(data.world, &self.sprite_sheet, (31, 0), (1, 31), WALL);
+        draw_wall(data.world, &self.sprite_sheet, (0, 31), (31, 1), WALL);
+
         let mut hitboxes = HitState::new();
-        hitboxes.set(PLAYER_HITTABLE_BOX, 8.0, (0.0, 0.0));
+        hitboxes.set(PLAYER_HITTABLE_BOX, 16.0, 16.0, (0.0, 0.0));
 
         spawn_goblin(data.world, self.sprite_sheet.clone(), 0.0, 0.0)
             .build();
@@ -278,10 +283,7 @@ impl SimpleState for MainGameState {
             .build();
 
         spawn_at(data.world, 0.0, stage.1)
-            .with(SpriteRender {
-                sprite_sheet: self.sprite_sheet.clone(),
-                sprite_number: 0
-            })
+            .with_sprite(self.sprite_sheet.clone(), 0)
             .with(hitboxes.clone())
             .with(AnimationController::new())
             .with(Health { max: 2, left: 2 })
@@ -289,10 +291,7 @@ impl SimpleState for MainGameState {
             .build();
 
         spawn_at(data.world, stage.0, stage.1)
-            .with(SpriteRender {
-                sprite_sheet: self.sprite_sheet.clone(),
-                sprite_number: 0
-            })
+            .with_sprite(self.sprite_sheet.clone(), 0)
             .with(hitboxes.clone())
             .with(AnimationController::new())
             .with(Health { max: 2, left: 2 })
@@ -335,27 +334,28 @@ fn main() -> amethyst::Result<()> {
 
     let game_data =
         GameDataBuilder::default()
-            .with_bundle(RenderBundle::new(pipe, Some(config))
-                .with_sprite_sheet_processor()
-                .with_sprite_visibility_sorting(&[]))?
             .with_bundle(input_bundle)?
             .with_bundle(TransformBundle::new())?
             .with(PlayerMovementSystem::new(), "player_move", &[])
             .with(ChaseAndWanderSystem, "chase_and_wander", &[])
-            .with(PlayerAttackSystem::new(), "player_attack", &[])
-            .with(VelocitySystem, "velocity", &[])
+            .with(PlayerAttackSystem::new(), "player_attack", &["player_move"])
             .with(CameraFollow, "camera_follow", &[])
             .with(UiSpriteSystem, "ui_sprite", &["camera_follow", "transform_system"])
-            .with(RestitutionSystem, "restitution", &["velocity"])
             .with(RotationSystem, "rotation", &[])
             .with(AnimationSystem, "animation", &[])
-            // .with(DebugDrawHitboxes, "debug_hitboxes", &[])
+            .with(VelocitySystem, "velocity", &["animation"])
+            .with(RestitutionSystem, "restitution", &["velocity"])
+            .with(DebugDrawHitboxes, "debug_hitboxes", &[])
             .with(PlayerHeartSystem, "hearts", &[])
             .with(PlayerDamageSystem, "player_damage", &["animation"])
             .with(EnemyDamageSystem, "enemy_damage", &["animation"])
             .with(SightSystem, "sight", &["animation"])
             .with(AimingSystem, "aim", &["sight"])
-            .with(DeathSystem, "death", &["player_damage", "enemy_damage"]);
+            .with(DeathSystem, "death", &["player_damage", "enemy_damage"])
+            .with_barrier()
+            .with_bundle(RenderBundle::new(pipe, Some(config))
+                .with_sprite_sheet_processor()
+                .with_sprite_visibility_sorting(&[]))?;
     let mut game = Application::new("./resources", InitializingGameState::new(), game_data)?;
 
     game.run();

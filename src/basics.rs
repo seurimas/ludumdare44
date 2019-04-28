@@ -18,24 +18,29 @@ pub type HitboxCollision = (f32, f32, f32, f32);
 
 #[derive(Debug, Copy, Clone)]
 pub struct Hitbox {
-    pub size: f32,
+    pub width: f32,
+    pub height: f32,
     pub offset: (f32, f32),
     pub debug_color: Option<Rgba>,
 }
 
 impl Hitbox {
     pub fn new(size: f32) -> Hitbox {
-        Hitbox { size, offset: (0.0, 0.0), debug_color: None }
+        Hitbox { width: size * 2.0, height: size * 2.0, offset: (0.0, 0.0), debug_color: None }
     }
     pub fn new_at(size: f32, offset: (f32, f32)) -> Hitbox {
-        Hitbox { size, offset, debug_color: None }
+        Hitbox { width: size * 2.0, height: size * 2.0, offset, debug_color: None }
+    }
+    pub fn new_at_rect(width: f32, height: f32, offset: (f32, f32)) -> Hitbox {
+        Hitbox { width, height, offset, debug_color: None }
     }
     pub fn depth(&self, other: &Hitbox, (mx, my): (f32, f32), (ox, oy): (f32, f32)) -> Option<HitboxCollision> {
-        let square_size = self.size + other.size;
         let dx = (ox + other.offset.0) - (mx + self.offset.0);
         let dy = (oy + other.offset.1) - (my + self.offset.1);
-        if dx.abs() < square_size && dy.abs() < square_size {
-            Some((dx, dy, square_size - dx.abs(), square_size - dy.abs()))
+        let sw = (self.width + other.width) / 2.0;
+        let sh = (self.height + other.height) / 2.0;
+        if dx.abs() < sw && dy.abs() < sh {
+            Some((dx, dy, sw - dx.abs(), sh - dy.abs()))
         } else {
             None
         }
@@ -55,6 +60,9 @@ impl Physical {
     }
     pub fn new_static(size: f32) -> Physical {
         Physical { hitbox: Hitbox::new(size), is_static: true }
+    }
+    pub fn new_wall(width: f32, height: f32) -> Physical {
+        Physical { hitbox: Hitbox::new_at_rect(width, height, (0.0, 0.0)), is_static: true }
     }
     pub fn depth(&self, other: &Physical, my_pos: (f32, f32), other_pos: (f32, f32)) -> Option<HitboxCollision> {
         self.hitbox.depth(&other.hitbox, my_pos, other_pos)
@@ -84,8 +92,8 @@ impl HitState {
             rotation: Rotation::East,
         }
     }
-    pub fn set(&mut self, index: usize, size: f32, offset: (f32, f32)) {
-        self.hitboxes[index] = Some(Hitbox::new_at(size, offset));
+    pub fn set(&mut self, index: usize, width: f32, height: f32, offset: (f32, f32)) {
+        self.hitboxes[index] = Some(Hitbox::new_at_rect(width, height, offset));
     }
     pub fn clear(&mut self, index: usize) {
         self.hitboxes[index] = None;
@@ -98,6 +106,16 @@ impl HitState {
         for i in 0..rotated.len() {
             if let Some(mut hitbox) = rotated[i].as_mut() {
                 hitbox.offset = self.rotation.rotate(hitbox.offset);
+                let (width, height) = match self.rotation {
+                    Rotation::North | Rotation::South => {
+                        (hitbox.height, hitbox.width)
+                    },
+                    Rotation::East | Rotation::West => {
+                        (hitbox.width, hitbox.height)
+                    }
+                };
+                hitbox.width = width;
+                hitbox.height = height;
             }
         }
         rotated
@@ -106,6 +124,16 @@ impl HitState {
         if let Some(hitbox) = self.hitboxes[index] {
             let mut rotated = hitbox.clone();
             rotated.offset = self.rotation.rotate(hitbox.offset);
+            let (width, height) = match self.rotation {
+                Rotation::North | Rotation::South => {
+                    (rotated.height, rotated.width)
+                },
+                Rotation::East | Rotation::West => {
+                    (rotated.width, rotated.height)
+                }
+            };
+            rotated.width = width;
+            rotated.height = height;
             Some(rotated)
         } else {
             None

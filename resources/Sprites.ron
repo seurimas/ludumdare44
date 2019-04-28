@@ -234,5 +234,13 @@
       width: 16,
       offsets: None,
     ),
+  /* 28: Wall */
+    (
+      x: 16,
+      y: 256,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
   ],
 )

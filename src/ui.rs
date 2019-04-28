@@ -58,10 +58,8 @@ pub struct UiSprite {
 }
 
 pub fn draw_sprite(world: &mut World, sprite_sheet: SpriteSheetHandle, sprite_number: usize, anchor: Anchor, offset: (f32, f32)) -> EntityBuilder {
-    world.create_entity()
-        .with(at(0.0, 0.0))
-        .with(GlobalTransform::default())
-        .with(SpriteRender { sprite_sheet, sprite_number })
+    spawn_at(world, 0.0, 0.0)
+        .with_sprite(sprite_sheet, sprite_number)
         .with(UiSprite { anchor, offset })
 }
 

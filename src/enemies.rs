@@ -252,19 +252,16 @@ pub fn spawn_goblin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, 
     let frame = attack_animation.add_frame_with_velocity((0.0, 0.0), 0.5);
     attack_animation.set_sprite(frame, GOBLIN_IDLE);
     let mut hitstate = HitState::new();
-    hitstate.set(ENEMY_AIMING_BOX, 10.0, (16.0, 0.0));
-    hitstate.set(ENEMY_SIGHT_BOX, 32.0, (20.0, 0.0));
-    hitstate.set(PLAYER_HITTABLE_BOX, 6.0, (0.0, 0.0));
+    hitstate.set(ENEMY_AIMING_BOX, 20.0, 10.0, (16.0, 0.0));
+    hitstate.set(ENEMY_SIGHT_BOX, 64.0, 64.0, (20.0, 0.0));
+    hitstate.set(PLAYER_HITTABLE_BOX, 12.0, 12.0, (0.0, 0.0));
 
     spawn_at(world, x, y)
         .with_physics(6.0)
         .with(AnimationController::new())
         .with(hitstate)
         .with(Health { max: 2, left: 2 })
-        .with(SpriteRender {
-            sprite_sheet: sprite_sheet,
-            sprite_number: 7,
-        })
+        .with_sprite(sprite_sheet, 7)
         .with(MeleeEnemy::new(attack_animation))
         .with(ChaseAndWanderEnemy::new(idle, walking, 50.0, 75.0))
 }

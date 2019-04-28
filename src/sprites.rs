@@ -27,3 +27,4 @@ pub const EMPTY_HEART: usize = 25;
 pub const HALF_SPENT: usize = 26;
 pub const BLANK: usize = 27;
 pub const FLOOR_EMPTY: usize = 28;
+pub const WALL: usize = 29;

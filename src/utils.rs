@@ -55,6 +55,8 @@ pub fn spawn_at_z(world: &mut World, x: f32, y: f32, z: f32) -> EntityBuilder {
 
 pub trait BuilderHelp {
     fn with_physics(self, size: f32) -> Self;
+    fn with_static(self, size: f32) -> Self;
+    fn with_sprite(self, sprite_sheet: SpriteSheetHandle, sprite_number: usize) -> Self;
 }
 
 impl <'s> BuilderHelp for EntityBuilder<'s> {
@@ -63,6 +65,18 @@ impl <'s> BuilderHelp for EntityBuilder<'s> {
             .with(Velocity { vx: 0.0, vy: 0.0 })
             .with(Physical::new(size))
             .with(Rotation::East)
+    }
+    fn with_static(self, size: f32) -> EntityBuilder<'s> {
+        self
+            .with(Physical::new_static(size))
+    }
+    fn with_sprite(self, sprite_sheet: SpriteSheetHandle, sprite_number: usize) -> EntityBuilder<'s> {
+        self
+            .with(SpriteRender {
+                sprite_sheet: sprite_sheet,
+                sprite_number
+            })
+            .with(Transparent)
     }
 }
 
