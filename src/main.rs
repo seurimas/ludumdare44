@@ -135,6 +135,8 @@ impl<'s> System<'s> for AnimationSystem {
     );
     fn run(&mut self, (mut animation, mut hitstate, mut velocity, mut sprite, rotation, time) : Self::SystemData) {
         for (animation, hitstate, mut velocity, mut sprite, rotation) in (&mut animation, &mut hitstate, &mut velocity, &mut sprite, &rotation).join() {
+            hitstate.clear(ENEMY_ATTACK_BOX);
+            hitstate.clear(PLAYER_ATTACK_BOX);
             if animation.active() {
                 let frame = animation.step(time.delta_seconds());
                 if let Some(frame) = frame {
@@ -200,6 +202,7 @@ impl SimpleState for Example {
             .with(Player::new())
             .with(hitboxes)
             .with(AnimationController::new())
+            .with(Health { left: 8, max: 8 })
             .with_physics(4.0)
             .build();
 
@@ -267,8 +270,11 @@ fn main() -> amethyst::Result<()> {
             .with(RotationSystem, "rotation", &[])
             .with(AnimationSystem, "animation", &[])
             .with(DebugDrawHitboxes, "debug_hitboxes", &[])
-            .with(DamageSystem, "damage", &["animation"])
-            .with(DeathSystem, "death", &["damage"]);
+            .with(PlayerDamageSystem, "player_damage", &["animation"])
+            .with(EnemyDamageSystem, "enemy_damage", &["animation"])
+            .with(SightSystem, "sight", &["animation"])
+            .with(AimingSystem, "aim", &["sight"])
+            .with(DeathSystem, "death", &["player_damage", "enemy_damage"]);
     let mut game = Application::new("./resources", Example, game_data)?;
 
     game.run();

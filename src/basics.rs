@@ -61,10 +61,12 @@ impl Physical {
 
 pub const HITSTATE_SIZE: usize = 16;
 
+pub const ENEMY_ATTACK_BOX: usize = 0;
 pub const ENEMY_HITTABLE_BOX: usize = 1;
 pub const PLAYER_ATTACK_BOX: usize = 2;
 pub const PLAYER_HITTABLE_BOX: usize = 3;
 pub const ENEMY_SIGHT_BOX: usize = 4;
+pub const ENEMY_AIMING_BOX: usize = 5;
 
 #[derive(Component, Debug, Clone)]
 #[storage(VecStorage)]
