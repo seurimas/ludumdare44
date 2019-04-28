@@ -103,6 +103,10 @@ pub fn load_spritesheet<'a>(world: &mut World, path: String, progress: &'a mut P
         &sprite_sheet_store,
     )
 }
+pub fn get_sprite_sheet(world: &World) -> SpriteSheetHandle {
+    let main_sprite = world.read_resource::<MainSprite>();
+    main_sprite.0.clone()
+}
 pub fn idle_animation(stand: usize) -> HitboxAnimation {
     let mut idle = HitboxAnimation::new();
     let frame = idle.add_frame(1.0);

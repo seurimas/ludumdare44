@@ -41,3 +41,44 @@ pub fn draw_wall(world: &mut World, sprite_sheet: &SpriteSheetHandle, (x, y): (i
         .with(Physical::new_wall(w as f32, h as f32))
         .build();
 }
+
+fn heart_spin_animation(rotation_speed: f32, pause_duration: f32, heart_spin: [usize; 8]) -> HitboxAnimation {
+    let mut animation = HitboxAnimation::new();
+    let frame = animation.add_frame(pause_duration);
+    animation.set_sprite(frame, heart_spin[0]);
+    let frame = animation.add_frame(rotation_speed);
+    animation.set_sprite(frame, heart_spin[1]);
+    let frame = animation.add_frame(rotation_speed);
+    animation.set_sprite(frame, heart_spin[2]);
+    let frame = animation.add_frame(rotation_speed);
+    animation.set_sprite(frame, heart_spin[3]);
+    let frame = animation.add_frame(pause_duration);
+    animation.set_sprite(frame, heart_spin[4]);
+    let frame = animation.add_frame(rotation_speed);
+    animation.set_sprite(frame, heart_spin[5]);
+    let frame = animation.add_frame(rotation_speed);
+    animation.set_sprite(frame, heart_spin[6]);
+    let frame = animation.add_frame(rotation_speed);
+    animation.set_sprite(frame, heart_spin[7]);
+    animation
+}
+
+pub fn heart_spin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, y: f32) -> EntityBuilder {
+    let mut animation_controller = AnimationController::new();
+    let rotation_speed = 0.15;
+    let pause_duration = 0.5;
+    animation_controller.start_loop(heart_spin_animation(rotation_speed, pause_duration, HEART_SPIN));
+    spawn_at(world, x, y)
+        .with_sprite(sprite_sheet, HEART_SPIN[0])
+        .with(animation_controller)
+}
+
+pub fn spend_heart_spin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, y: f32) -> EntityBuilder {
+    let mut animation_controller = AnimationController::new();
+    let rotation_speed = 0.25;
+    let pause_duration = 0.25;
+    animation_controller.start_loop(heart_spin_animation(rotation_speed, pause_duration, SPEND_HEART_SPIN));
+    spawn_at(world, x, y)
+        .with_sprite(sprite_sheet, SPEND_HEART_SPIN[0])
+        .with(animation_controller)
+}

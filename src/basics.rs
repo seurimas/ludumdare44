@@ -2,10 +2,12 @@ use amethyst::{
     prelude::*,
     ecs::*,
     core::transform::*,
-    renderer::Rgba,
+    renderer::*,
 };
 
 pub const stage: (f32, f32) = (200.0, 150.0);
+
+pub struct MainSprite(pub SpriteSheetHandle);
 
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
@@ -261,6 +263,7 @@ pub struct AnimationController {
     progress: f32,
     animation: Option<HitboxAnimation>,
     state: AnimationState,
+    looping: bool,
 }
 impl AnimationController {
     pub fn new() -> AnimationController {
@@ -268,6 +271,7 @@ impl AnimationController {
             progress: 0.0,
             animation: None,
             state: AnimationState::Idle,
+            looping: false,
         }
     }
     pub fn start(&mut self, animation: HitboxAnimation, state: AnimationState) {
@@ -275,10 +279,19 @@ impl AnimationController {
         self.progress = 0.0;
         self.state = state;
     }
+    pub fn start_loop(&mut self, animation: HitboxAnimation) {
+        self.animation = Some(animation);
+        self.progress = 0.0;
+        self.looping = true;
+    }
     pub fn step(&mut self, delta_seconds: f32) -> Option<AnimationFrame> {
         self.progress += delta_seconds;
         if let Some(animation) = &self.animation {
-            let frame = animation.get_frame_at(self.progress);
+            let mut frame = animation.get_frame_at(self.progress);
+            if self.looping && frame.is_none() {
+                self.progress = 0.0;
+                frame = animation.get_frame_at(self.progress);
+            }
             if let Some(frame) = frame {
                 Some(frame)
             } else {

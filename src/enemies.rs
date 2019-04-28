@@ -233,7 +233,8 @@ impl<'s> HitboxCollisionSystem<'s> for AimingSystem {
     }
 }
 
-pub fn spawn_goblin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, y: f32) -> EntityBuilder {
+pub fn spawn_goblin(world: &mut World, x: f32, y: f32) -> EntityBuilder {
+    let sprite_sheet = get_sprite_sheet(world);
     let idle = idle_animation(GOBLIN_IDLE);
     let walking = walking_animation(GOBLIN_IDLE, GOBLIN_WALK_0, GOBLIN_WALK_1, 0.1);
     let mut attack_animation = HitboxAnimation::new();

@@ -136,22 +136,37 @@ impl<'s> System<'s> for AnimationSystem {
         WriteStorage<'s, Velocity>,
         WriteStorage<'s, SpriteRender>,
         ReadStorage<'s, Rotation>,
+        Entities<'s>,
         Read<'s, Time>,
     );
-    fn run(&mut self, (mut animation, mut hitstate, mut velocity, mut sprite, rotation, time) : Self::SystemData) {
-        for (animation, hitstate, mut velocity, mut sprite, rotation) in (&mut animation, &mut hitstate, &mut velocity, &mut sprite, &rotation).join() {
-            hitstate.clear(ENEMY_ATTACK_BOX);
-            hitstate.clear(PLAYER_ATTACK_BOX);
+    fn run(&mut self, (mut animation, mut hitstate, mut velocity, mut sprite, rotation, entities, time) : Self::SystemData) {
+        for (animation, mut sprite, entity) in (&mut animation, &mut sprite, &entities).join() {
+            let mut hitstate = hitstate.get_mut(entity);
+            if let Some(hitstate) = hitstate.as_mut() {
+                hitstate.clear(ENEMY_ATTACK_BOX);
+                hitstate.clear(PLAYER_ATTACK_BOX);
+            }
             if animation.active() {
                 let frame = animation.step(time.delta_seconds());
                 if let Some(frame) = frame {
                     for i in 0..HITSTATE_SIZE {
-                        if let Some(hitbox) = frame.hitboxes[i] {
-                            hitstate.set(i, hitbox.width, hitbox.height, hitbox.offset);
+                        if let Some(hitstate) = hitstate.as_mut() {
+                            if let Some(hitbox) = frame.hitboxes[i] {
+                                hitstate.set(i, hitbox.width, hitbox.height, hitbox.offset);
+                            }
                         }
                     }
-                    if let Some(frame_velocity) = frame.velocity {
-                        let (vx, vy) = rotation.rotate(frame_velocity);
+                    if let (Some(frame_velocity), Some(velocity)) = (frame.velocity, velocity.get_mut(entity)) {
+                        let vx;
+                        let vy;
+                        if let Some(rotation) = rotation.get(entity) {
+                            let (rx, ry) = rotation.rotate(frame_velocity);
+                            vx = rx;
+                            vy = ry;
+                        } else {
+                            vx = frame_velocity.0;
+                            vy = frame_velocity.1;
+                        }
                         velocity.vx = vx;
                         velocity.vy = vy;
                     }
@@ -199,7 +214,10 @@ impl SimpleState for InitializingGameState {
             line_width: 100.0,
         });
         data.world.register::<StaggerAnimation>();
-        self.sprite_sheet = Some(load_spritesheet(data.world, get_resource("Sprites"), &mut self.progress));
+        let sprite_sheet = load_spritesheet(data.world, get_resource("Sprites"), &mut self.progress);
+        let main_sprite = MainSprite(sprite_sheet.clone());
+        data.world.add_resource(main_sprite);
+        self.sprite_sheet = Some(sprite_sheet);
     }
     fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         match self.progress.complete() {
@@ -267,35 +285,48 @@ impl SimpleState for MainGameState {
             .with_physics(4.0)
             .build();
 
+
         fill_world(data.world, &self.sprite_sheet, 32, 32, FLOOR_EMPTY);
-        draw_wall(data.world, &self.sprite_sheet, (0, 0), (31, 1), WALL);
-        draw_wall(data.world, &self.sprite_sheet, (0, 0), (1, 31), WALL);
-        draw_wall(data.world, &self.sprite_sheet, (31, 0), (1, 31), WALL);
-        draw_wall(data.world, &self.sprite_sheet, (0, 31), (31, 1), WALL);
+        draw_wall(data.world, &self.sprite_sheet, (0, 0), (32, 1), WALL);
+        draw_wall(data.world, &self.sprite_sheet, (0, 0), (1, 32), WALL);
+        draw_wall(data.world, &self.sprite_sheet, (31, 0), (1, 32), WALL);
+        draw_wall(data.world, &self.sprite_sheet, (0, 31), (32, 1), WALL);
 
         let mut hitboxes = HitState::new();
         hitboxes.set(PLAYER_HITTABLE_BOX, 16.0, 16.0, (0.0, 0.0));
 
-        spawn_goblin(data.world, self.sprite_sheet.clone(), 0.0, 0.0)
+        spawn_goblin(data.world, 0.0, 0.0)
             .build();
 
-        spawn_goblin(data.world, self.sprite_sheet.clone(), stage.0, 0.0)
+        spawn_goblin(data.world, stage.0, 0.0)
             .build();
 
-        spawn_at(data.world, 0.0, stage.1)
+        let chest = spawn_at(data.world, 0.0, stage.1)
             .with_sprite(self.sprite_sheet.clone(), 0)
             .with(hitboxes.clone())
             .with(AnimationController::new())
             .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
+        heart_spin(data.world, self.sprite_sheet.clone(), -4.0, 8.0)
+            .with(Parent { entity: chest })
+            .build();
+        heart_spin(data.world, self.sprite_sheet.clone(), 4.0, 8.0)
+            .with(Parent { entity: chest })
+            .build();
 
-        spawn_at(data.world, stage.0, stage.1)
+        let chest = spawn_at(data.world, stage.0, stage.1)
             .with_sprite(self.sprite_sheet.clone(), 0)
             .with(hitboxes.clone())
             .with(AnimationController::new())
             .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
+            .build();
+        spend_heart_spin(data.world, self.sprite_sheet.clone(), -4.0, 8.0)
+            .with(Parent { entity: chest })
+            .build();
+        spend_heart_spin(data.world, self.sprite_sheet.clone(), 4.0, 8.0)
+            .with(Parent { entity: chest })
             .build();
     }
     fn update(&mut self, mut data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
