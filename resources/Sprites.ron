@@ -498,5 +498,37 @@
       width: 16,
       offsets: None,
     ),
+  /* 62: Quarter Heart */
+    (
+      x: 192,
+      y: 16,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 63: ThreeQuarters Heart */
+    (
+      x: 208,
+      y: 16,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 64: Quarter Half Spent */
+    (
+      x: 224,
+      y: 16,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 65: Empty Half Spent */
+    (
+      x: 240,
+      y: 16,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
   ],
 )

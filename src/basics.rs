@@ -81,7 +81,7 @@ pub const ENEMY_SIGHT_BOX: usize = 4;
 pub const ENEMY_AIMING_BOX: usize = 5;
 pub const PORTAL_BOX: usize = 6;
 pub const PLAYER_INTERACT_BOX: usize = 7;
-pub const PLAYER_INTERACTABLE_BOX: usize = 8;
+pub const CHEST_BOX: usize = 8;
 
 #[derive(Component, Debug, Clone)]
 #[storage(HashMapStorage)]

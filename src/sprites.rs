@@ -28,7 +28,11 @@ pub const GAME_OVER_R: usize = 22;
 pub const FULL_HEART: usize = 23;
 pub const HALF_HEART: usize = 24;
 pub const EMPTY_HEART: usize = 25;
-pub const HALF_SPENT: usize = 26;
+pub const HALF_SPENT_HEART: usize = 26;
+pub const HALF_EMPTY_HEART: usize = 65;
+pub const QUARTER_HEART: usize = 62;
+pub const THREE_QUARTER_HEART: usize = 63;
+pub const QUARTER_HALF_SPENT_HEART: usize = 64;
 
 pub const BLANK: usize = 27;
 

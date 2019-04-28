@@ -268,6 +268,7 @@ impl SimpleState for GameOverState {
         if want_continue(&event) && data.world.exec(can_continue) {
             Trans::Switch(Box::new(MainGameState {
                 sprite_sheet: self.sprite_sheet.clone(),
+                player_state: PlayerState::new(),
             }))
         } else {
             Trans::None
@@ -310,6 +311,7 @@ impl SimpleState for TutorialState {
         if want_continue(&event) && data.world.exec(can_continue) {
             Trans::Switch(Box::new(MainGameState {
                 sprite_sheet: self.sprite_sheet.clone(),
+                player_state: PlayerState::new(),
             }))
         } else {
             Trans::None
@@ -319,6 +321,7 @@ impl SimpleState for TutorialState {
 
 struct MainGameState {
     sprite_sheet: SpriteSheetHandle,
+    player_state: PlayerState,
 }
 impl SimpleState for MainGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
@@ -328,31 +331,7 @@ impl SimpleState for MainGameState {
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
             .build();
 
-        let mut hitboxes = HitState::new();
-        hitboxes.set(ENEMY_HITTABLE_BOX, 16.0, 16.0, (0.0, 0.0));
-        hitboxes.set(PLAYER_INTERACT_BOX, 24.0, 16.0, (8.0, 0.0));
-        let hearts = [
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (0.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (16.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (32.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (48.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (64.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (80.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (96.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (112.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (128.0, 0.0)).build(),
-            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (144.0, 0.0)).build(),
-        ];
-
-        spawn_at(data.world, stage.0 / 2.0, stage.1 / 2.0)
-            .with_sprite(self.sprite_sheet.clone(), PLAYER_IDLE)
-            .with(Player::new(hearts))
-            .with(hitboxes)
-            .with(AnimationController::new())
-            .with(Health::new(8))
-            .with_physics(4.0)
-            .build();
-
+        spawn_player(data.world, &self.player_state);
 
         fill_world(data.world, &self.sprite_sheet, 32, 32, FLOOR_EMPTY);
         draw_wall(data.world, &self.sprite_sheet, (0, 0), (32, 1), WALL);
@@ -368,8 +347,8 @@ impl SimpleState for MainGameState {
 
         portal(data.world, stage.0 / 2.0, stage.1 / 2.0).build();
 
-        spawn_chest(data.world, 0.0, stage.1, 1);
-        spawn_chest(data.world, stage.0, stage.1, 2);
+        spawn_chest(data.world, 0.0, stage.1, 1, Upgrade::HeartBracelet);
+        spawn_chest(data.world, stage.0, stage.1, 2, Upgrade::GoldenAegis);
     }
     fn update(&mut self, mut data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         let player = data.world.exec(|player: ReadStorage< Player>| {
@@ -382,6 +361,7 @@ impl SimpleState for MainGameState {
         if data.world.exec(want_advance) {
             Trans::Switch(Box::new(MainGameState {
                 sprite_sheet: self.sprite_sheet.clone(),
+                player_state: self.player_state.advance(data.world.exec(get_health)),
             }))
         } else if player {
             Trans::None
@@ -432,6 +412,7 @@ fn main() -> amethyst::Result<()> {
             .with(AimingSystem, "aim", &["sight"])
             .with(DeathSystem, "death", &["player_damage", "enemy_damage"])
             .with(PortalSystem, "portal", &[])
+            .with(PurchaseSystem, "purchase", &[])
             .with(ExitSystem, "exit", &["portal"])
             .with_barrier()
             .with_bundle(RenderBundle::new(pipe, Some(config))

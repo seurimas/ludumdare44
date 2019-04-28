@@ -29,6 +29,14 @@ impl Health {
         self.left -= amount;
         self.invuln = invuln;
     }
+    pub fn pay(&mut self, amount: i32) {
+        self.left -= amount;
+        self.max -= amount;
+    }
+    pub fn embiggen(&mut self) {
+        self.left *= 2;
+        self.max *= 2;
+    }
 }
 
 pub struct DeathSystem;
