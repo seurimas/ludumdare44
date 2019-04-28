@@ -5,6 +5,8 @@ use amethyst::{
     renderer::Rgba,
 };
 
+pub const stage: (f32, f32) = (200.0, 150.0);
+
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
 pub struct Velocity {

@@ -5,6 +5,7 @@ use amethyst::{
     core::*,
     input::*,
 };
+use crate::sprites::*;
 use crate::basics::*;
 use crate::combat::*;
 use crate::utils::*;
@@ -45,18 +46,18 @@ impl<'s> System<'s> for PlayerHeartSystem {
                 if let Some(mut sprite) = sprite.get_mut(player.hearts[i]) {
                     sprite.sprite_number = {
                         if i < full_hearts {
-                            23
+                            FULL_HEART
                         } else if i < half_hearts {
-                            24
+                            HALF_HEART
                         } else {
-                            25
+                            EMPTY_HEART
                         }
                     };
                 }
             }
             for i in hearts..MAX_HEARTS {
                 if let Some(mut sprite) = sprite.get_mut(player.hearts[i]) {
-                    sprite.sprite_number = 27;
+                    sprite.sprite_number = BLANK;
                 }
             }
         }
@@ -70,8 +71,8 @@ pub struct PlayerMovementSystem {
 impl PlayerMovementSystem {
     pub fn new() -> PlayerMovementSystem {
         PlayerMovementSystem {
-            idle: idle_animation(1),
-            walking: walking_animation(1, 5, 6, 0.1),
+            idle: idle_animation(PLAYER_IDLE),
+            walking: walking_animation(PLAYER_IDLE, PLAYER_WALK_0, PLAYER_WALK_1, 0.1),
         }
     }
 }
@@ -174,13 +175,13 @@ impl PlayerAttackSystem {
         let mut attacks = Vec::new();
         let mut base_attack = HitboxAnimation::new();
         let frame = base_attack.add_frame_with_velocity((0.0, 0.0), 0.1);
-        base_attack.set_sprite(frame, 2);
+        base_attack.set_sprite(frame, PLAYER_ATTACK_0);
         let frame = base_attack.add_frame_with_velocity((0.0, 0.0), 0.2);
         base_attack.set_hitbox(frame, PLAYER_ATTACK_BOX, Hitbox::new_at(8.0, (8.0, 0.0)));
-        base_attack.set_sprite(frame, 3);
+        base_attack.set_sprite(frame, PLAYER_ATTACK_1);
         let frame = base_attack.add_frame_with_velocity((0.0, 0.0), 0.2);
         base_attack.set_hitbox(frame, PLAYER_ATTACK_BOX, Hitbox::new_at(4.0, (10.0, 0.0)));
-        base_attack.set_sprite(frame, 4);
+        base_attack.set_sprite(frame, PLAYER_ATTACK_2);
         attacks.push(base_attack);
         PlayerAttackSystem {
             attacks,
@@ -197,7 +198,9 @@ impl<'s> System<'s> for PlayerAttackSystem {
     fn run(&mut self, (player, mut animation_controller, mut hitstate, input) : Self::SystemData) {
         if let Some(true) = input.action_is_down("attack") {
             for (player, mut animation_controller) in (&player, &mut animation_controller).join() {
-                animation_controller.start(self.attacks[0].clone(), AnimationState::Attacking);
+                if animation_controller.state() == AnimationState::Idle || animation_controller.state() == AnimationState::Walking {
+                    animation_controller.start(self.attacks[0].clone(), AnimationState::Attacking);
+                }
             }
         }
         for (player, mut hitstate, animation_controller) in (&player, &mut hitstate, &animation_controller).join() {

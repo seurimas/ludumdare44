@@ -8,6 +8,7 @@ use amethyst::{
 use crate::basics::*;
 use crate::combat::*;
 use crate::player::*;
+use crate::sprites::*;
 use crate::utils::*;
 
 #[derive(Component, Debug)]
@@ -233,25 +234,25 @@ impl<'s> HitboxCollisionSystem<'s> for AimingSystem {
 }
 
 pub fn spawn_goblin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, y: f32) -> EntityBuilder {
-    let idle = idle_animation(7);
-    let walking = walking_animation(7, 8, 9, 0.1);
+    let idle = idle_animation(GOBLIN_IDLE);
+    let walking = walking_animation(GOBLIN_IDLE, GOBLIN_WALK_0, GOBLIN_WALK_1, 0.1);
     let mut attack_animation = HitboxAnimation::new();
     let frame = attack_animation.add_frame_with_velocity((0.0, 0.0), 0.125);
-    attack_animation.set_sprite(frame, 10);
+    attack_animation.set_sprite(frame, GOBLIN_ATTACK_0);
     let frame = attack_animation.add_frame_with_velocity((50.0, 0.0), 0.125);
-    attack_animation.set_sprite(frame, 11);
+    attack_animation.set_sprite(frame, GOBLIN_ATTACK_1);
     attack_animation.set_hitbox(frame, ENEMY_ATTACK_BOX, Hitbox::new_at(4.0, (8.0, 2.0)));
     let frame = attack_animation.add_frame_with_velocity((50.0, 0.0), 0.375);
-    attack_animation.set_sprite(frame, 13);
+    attack_animation.set_sprite(frame, GOBLIN_ATTACK_2);
     let frame = attack_animation.add_frame_with_velocity((50.0, 0.0), 0.125);
-    attack_animation.set_sprite(frame, 12);
+    attack_animation.set_sprite(frame, GOBLIN_ATTACK_3);
     attack_animation.set_hitbox(frame, ENEMY_ATTACK_BOX, Hitbox::new_at(4.0, (8.0, -2.0)));
     let frame = attack_animation.add_frame_with_velocity((50.0, 0.0), 0.375);
-    attack_animation.set_sprite(frame, 14);
+    attack_animation.set_sprite(frame, GOBLIN_ATTACK_4);
     let frame = attack_animation.add_frame_with_velocity((0.0, 0.0), 0.5);
-    attack_animation.set_sprite(frame, 7);
+    attack_animation.set_sprite(frame, GOBLIN_IDLE);
     let mut hitstate = HitState::new();
-    hitstate.set(ENEMY_AIMING_BOX, 6.0, (12.0, 0.0));
+    hitstate.set(ENEMY_AIMING_BOX, 10.0, (16.0, 0.0));
     hitstate.set(ENEMY_SIGHT_BOX, 32.0, (20.0, 0.0));
     hitstate.set(PLAYER_HITTABLE_BOX, 6.0, (0.0, 0.0));
 
@@ -265,5 +266,5 @@ pub fn spawn_goblin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, 
             sprite_number: 7,
         })
         .with(MeleeEnemy::new(attack_animation))
-        .with(ChaseAndWanderEnemy::new(idle, walking, 50.0, 100.0))
+        .with(ChaseAndWanderEnemy::new(idle, walking, 50.0, 75.0))
 }

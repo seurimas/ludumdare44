@@ -1,9 +1,11 @@
 use amethyst::{
     prelude::*,
     ecs::*,
+    assets::*,
     core::transform::*,
     renderer::*,
 };
+use crate::basics::stage;
 use crate::utils::*;
 use crate::nalgebra::{Point3};
 
@@ -15,16 +17,16 @@ pub enum Anchor {
     None,
 }
 impl Anchor {
-    fn place(&self, (xoff, yoff): (f32, f32), (bx, by, bw, bh): (f32, f32, f32, f32)) -> (f32, f32) {
+    fn place(&self, sprite: Sprite, (xoff, yoff): (f32, f32), (bx, by, bw, bh): (f32, f32, f32, f32)) -> (f32, f32) {
         let x = match self {
             Anchor::TopLeft | Anchor::Left | Anchor::BottomLeft => {
                 bx + xoff
             },
             Anchor::Top | Anchor::Middle | Anchor::Bottom => {
-                bx + (bw / 2.0) + xoff
+                bx + (bw / 2.0) + xoff - sprite.width / 2.0
             },
             Anchor::TopRight | Anchor::Right | Anchor::BottomRight => {
-                bx + bw - xoff
+                bx + bw - xoff - sprite.width
             },
             _ => {
                 xoff
@@ -32,10 +34,10 @@ impl Anchor {
         };
         let y = match self {
             Anchor::TopLeft | Anchor::Top | Anchor::TopRight => {
-                by + bh - yoff
+                by + bh - yoff - sprite.height / 2.0
             },
             Anchor::Left | Anchor::Middle | Anchor::Right => {
-                by + (bh / 2.0) + yoff
+                by + (bh / 2.0) + yoff - sprite.height / 2.0
             },
             Anchor::BottomLeft | Anchor::Bottom | Anchor::BottomRight => {
                 by + yoff
@@ -68,21 +70,27 @@ impl<'s> System<'s> for UiSpriteSystem {
     type SystemData = (
         ReadExpect<'s, ScreenDimensions>,
         Read<'s, ActiveCamera>,
+        Read<'s, AssetStorage<SpriteSheet>>,
         ReadStorage<'s, Camera>,
         ReadStorage<'s, UiSprite>,
+        ReadStorage<'s, SpriteRender>,
         WriteStorage<'s, Transform>,
         ReadStorage<'s, GlobalTransform>,
     );
-    fn run(&mut self, (screen, active, camera, ui_sprite, mut transform, global) : Self::SystemData) {
+    fn run(&mut self, (screen, active, assets, camera, ui_sprite, sprite, mut transform, global) : Self::SystemData) {
         if let Some((camera, camera_global)) = get_camera(active, &camera, &global) {
-            for (ui_sprite, mut transform) in (&ui_sprite, &mut transform).join() {
-                let point: Point3<f32> = [ui_sprite.offset.0, ui_sprite.offset.1, -0.1].into();
-                // let point: Point3<f32> = [-100.0, -100.0, 1.0].into();
-                let point = camera_global.0.transform_point(&point);
-                println!("{}", point);
-                transform.set_x(point.x);
-                transform.set_y(point.y);
-                transform.set_z(point.z);
+            for (ui_sprite, sprite, mut transform) in (&ui_sprite, &sprite, &mut transform).join() {
+                if let Some(sprite_sheet) = assets.get(&sprite.sprite_sheet) {
+                    let sprite = sprite_sheet.sprites[sprite.sprite_number].clone();
+                    let screen_box = (0.0, 0.0, stage.0, stage.1);
+                    let (x, y) = ui_sprite.anchor.place(sprite, ui_sprite.offset, screen_box);
+                    let point: Point3<f32> = [x, y, -0.1].into();
+                    let point = camera_global.0.transform_point(&point);
+                    println!("{}", point);
+                    transform.set_x(point.x);
+                    transform.set_y(point.y);
+                    transform.set_z(point.z);
+                }
             }
         } else {
             println!("BROKEN");

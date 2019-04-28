@@ -8,6 +8,7 @@ mod physics;
 mod player;
 mod combat;
 mod enemies;
+mod sprites;
 mod ui;
 
 use std::path::Path;
@@ -28,9 +29,8 @@ use crate::physics::*;
 use crate::player::*;
 use crate::combat::*;
 use crate::enemies::*;
+use crate::sprites::*;
 use crate::ui::*;
-
-const stage: (f32, f32) = (200.0, 150.0);
 
 struct EmptySystem;
 impl<'s> System<'s> for EmptySystem {
@@ -220,14 +220,14 @@ impl SimpleState for GameOverState {
         spawn_at_z(data.world, 0.0, 0.0, 1.0)
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
             .build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 15, Anchor::Middle, (100.0, 100.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 16, Anchor::Middle, (116.0, 100.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 17, Anchor::Middle, (132.0, 100.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 18, Anchor::Middle, (148.0, 100.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 19, Anchor::Middle, (100.0, 84.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 20, Anchor::Middle, (116.0, 84.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 21, Anchor::Middle, (132.0, 84.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), 22, Anchor::Middle, (148.0, 84.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_G, Anchor::Middle, (-24.0, 8.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_A, Anchor::Middle, (-8.0, 8.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_M, Anchor::Middle, (8.0, 8.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_E_0, Anchor::Middle, (24.0, 8.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_O, Anchor::Middle, (-24.0, -8.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_V, Anchor::Middle, (-8.0, -8.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_E_1, Anchor::Middle, (8.0, -8.0)).build();
+        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_R, Anchor::Middle, (24.0, -8.0)).build();
     }
 }
 
@@ -244,22 +244,22 @@ impl SimpleState for MainGameState {
         let mut hitboxes = HitState::new();
         hitboxes.set(ENEMY_HITTABLE_BOX, 8.0, (0.0, 0.0));
         let hearts = [
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (8.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (24.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (40.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (56.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (72.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (88.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (104.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (120.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (136.0, stage.1 - 8.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), 23, Anchor::TopLeft, (152.0, stage.1 - 8.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (8.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (24.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (40.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (56.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (72.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (88.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (104.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (120.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (136.0, 0.0)).build(),
+            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (152.0, 0.0)).build(),
         ];
 
         spawn_at(data.world, stage.0 / 2.0, stage.1 / 2.0)
             .with(SpriteRender {
                 sprite_sheet: self.sprite_sheet.clone(),
-                sprite_number: 1
+                sprite_number: PLAYER_IDLE
             })
             .with(Player::new(hearts))
             .with(hitboxes)
@@ -336,7 +336,8 @@ fn main() -> amethyst::Result<()> {
     let game_data =
         GameDataBuilder::default()
             .with_bundle(RenderBundle::new(pipe, Some(config))
-                .with_sprite_sheet_processor())?
+                .with_sprite_sheet_processor()
+                .with_sprite_visibility_sorting(&[]))?
             .with_bundle(input_bundle)?
             .with_bundle(TransformBundle::new())?
             .with(PlayerMovementSystem::new(), "player_move", &[])
@@ -348,7 +349,7 @@ fn main() -> amethyst::Result<()> {
             .with(RestitutionSystem, "restitution", &["velocity"])
             .with(RotationSystem, "rotation", &[])
             .with(AnimationSystem, "animation", &[])
-            .with(DebugDrawHitboxes, "debug_hitboxes", &[])
+            // .with(DebugDrawHitboxes, "debug_hitboxes", &[])
             .with(PlayerHeartSystem, "hearts", &[])
             .with(PlayerDamageSystem, "player_damage", &["animation"])
             .with(EnemyDamageSystem, "enemy_damage", &["animation"])
