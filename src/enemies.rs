@@ -10,18 +10,34 @@ use crate::combat::*;
 use crate::player::*;
 use crate::sprites::*;
 use crate::utils::*;
+#[derive(Component, Debug)]
+#[storage(HashMapStorage)]
+pub struct Enemy {
+    invisible: bool,
+}
+
+impl Enemy {
+    pub fn new() -> Enemy {
+        Enemy { invisible: false }
+    }
+    pub fn new_invisible() -> Enemy {
+        Enemy { invisible: true }
+    }
+}
 
 #[derive(Component, Debug)]
-#[storage(VecStorage)]
+#[storage(HashMapStorage)]
 pub struct MeleeEnemy {
     in_melee: bool,
     attack_animation: HitboxAnimation,
+    pub damage: i32,
 }
 impl MeleeEnemy {
-    pub fn new(attack_animation: HitboxAnimation) -> MeleeEnemy {
+    pub fn new(attack_animation: HitboxAnimation, damage: i32) -> MeleeEnemy {
         MeleeEnemy {
             in_melee: false,
             attack_animation,
+            damage,
         }
     }
 }
@@ -261,8 +277,9 @@ pub fn spawn_goblin(world: &mut World, x: f32, y: f32) -> EntityBuilder {
         .with_physics(6.0)
         .with(AnimationController::new())
         .with(hitstate)
-        .with(Health { max: 2, left: 2 })
+        .with(Health::new(2))
+        .with(Enemy::new())
         .with_sprite(sprite_sheet, 7)
-        .with(MeleeEnemy::new(attack_animation))
+        .with(MeleeEnemy::new(attack_animation, 1))
         .with(ChaseAndWanderEnemy::new(idle, walking, 50.0, 75.0))
 }

@@ -50,7 +50,7 @@ impl Hitbox {
 }
 
 #[derive(Component, Debug)]
-#[storage(VecStorage)]
+#[storage(HashMapStorage)]
 pub struct Physical {
     pub hitbox: Hitbox,
     pub is_static: bool,
@@ -79,9 +79,12 @@ pub const PLAYER_ATTACK_BOX: usize = 2;
 pub const PLAYER_HITTABLE_BOX: usize = 3;
 pub const ENEMY_SIGHT_BOX: usize = 4;
 pub const ENEMY_AIMING_BOX: usize = 5;
+pub const PORTAL_BOX: usize = 6;
+pub const PLAYER_INTERACT_BOX: usize = 7;
+pub const PLAYER_INTERACTABLE_BOX: usize = 8;
 
 #[derive(Component, Debug, Clone)]
-#[storage(VecStorage)]
+#[storage(HashMapStorage)]
 pub struct HitState {
     hitboxes: [Option<Hitbox>; HITSTATE_SIZE],
     rotation: Rotation,
@@ -258,7 +261,7 @@ pub trait HitboxCollisionSystem<'s>: System<'s> {
     }
 }
 #[derive(Component, Debug)]
-#[storage(VecStorage)]
+#[storage(HashMapStorage)]
 pub struct AnimationController {
     progress: f32,
     animation: Option<HitboxAnimation>,

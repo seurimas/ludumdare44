@@ -10,6 +10,7 @@ mod combat;
 mod enemies;
 mod sprites;
 mod world;
+mod drops;
 mod ui;
 
 use std::path::Path;
@@ -21,7 +22,7 @@ use amethyst::{
     core::*,
     renderer::*,
     assets::*,
-    utils::application_root_dir,
+    utils::fps_counter::*,
 };
 use nalgebra::{ Vector3, Point3};
 use crate::utils::*;
@@ -32,6 +33,7 @@ use crate::combat::*;
 use crate::enemies::*;
 use crate::sprites::*;
 use crate::world::*;
+use crate::drops::*;
 use crate::ui::*;
 
 struct EmptySystem;
@@ -114,8 +116,9 @@ impl<'s> System<'s> for DebugDrawHitboxes {
         ReadStorage<'s, HitState>,
         ReadStorage<'s, Transform>,
         ReadStorage<'s, Physical>,
+        Option<Read<'s, FPSCounter>>,
     );
-    fn run(&mut self, (mut lines, hitboxes, transform, physical) : Self::SystemData) {
+    fn run(&mut self, (mut lines, hitboxes, transform, physical, fps) : Self::SystemData) {
         for (hitboxes, transform) in (&hitboxes, &transform).join() {
             for m_hitbox in hitboxes.get_all().iter() {
                 if let Some(hitbox) = m_hitbox {
@@ -125,6 +128,9 @@ impl<'s> System<'s> for DebugDrawHitboxes {
         }
         for (physical, transform) in (&physical, &transform).join() {
             self.draw(&physical.hitbox, &mut lines, &transform.translation())
+        }
+        if let Some(fps) = fps {
+            println!("{}", fps.frame_fps());
         }
     }
 }
@@ -317,12 +323,14 @@ struct MainGameState {
 impl SimpleState for MainGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         data.world.delete_all();
+        init_world(data.world);
         spawn_at_z(data.world, 0.0, 0.0, 1.0)
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
             .build();
 
         let mut hitboxes = HitState::new();
         hitboxes.set(ENEMY_HITTABLE_BOX, 16.0, 16.0, (0.0, 0.0));
+        hitboxes.set(PLAYER_INTERACT_BOX, 24.0, 16.0, (8.0, 0.0));
         let hearts = [
             draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (0.0, 0.0)).build(),
             draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (16.0, 0.0)).build(),
@@ -341,7 +349,7 @@ impl SimpleState for MainGameState {
             .with(Player::new(hearts))
             .with(hitboxes)
             .with(AnimationController::new())
-            .with(Health { left: 8, max: 8 })
+            .with(Health::new(8))
             .with_physics(4.0)
             .build();
 
@@ -352,9 +360,6 @@ impl SimpleState for MainGameState {
         draw_wall(data.world, &self.sprite_sheet, (31, 0), (1, 32), WALL);
         draw_wall(data.world, &self.sprite_sheet, (0, 31), (32, 1), WALL);
 
-        let mut hitboxes = HitState::new();
-        hitboxes.set(PLAYER_HITTABLE_BOX, 16.0, 16.0, (0.0, 0.0));
-
         spawn_goblin(data.world, 0.0, 0.0)
             .build();
 
@@ -363,33 +368,8 @@ impl SimpleState for MainGameState {
 
         portal(data.world, stage.0 / 2.0, stage.1 / 2.0).build();
 
-        let chest = spawn_at(data.world, 0.0, stage.1)
-            .with_sprite(self.sprite_sheet.clone(), CHEST_SPRITE)
-            .with(hitboxes.clone())
-            .with(AnimationController::new())
-            .with(Health { max: 2, left: 2 })
-            .with_physics(8.0)
-            .build();
-        heart_spin(data.world, -4.0, 8.0)
-            .with(Parent { entity: chest })
-            .build();
-        heart_spin(data.world, 4.0, 8.0)
-            .with(Parent { entity: chest })
-            .build();
-
-        let chest = spawn_at(data.world, stage.0, stage.1)
-            .with_sprite(self.sprite_sheet.clone(), CHEST_SPRITE)
-            .with(hitboxes.clone())
-            .with(AnimationController::new())
-            .with(Health { max: 2, left: 2 })
-            .with_physics(8.0)
-            .build();
-        spend_heart_spin(data.world, -4.0, 8.0)
-            .with(Parent { entity: chest })
-            .build();
-        spend_heart_spin(data.world, 4.0, 8.0)
-            .with(Parent { entity: chest })
-            .build();
+        spawn_chest(data.world, 0.0, stage.1, 1);
+        spawn_chest(data.world, stage.0, stage.1, 2);
     }
     fn update(&mut self, mut data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         let player = data.world.exec(|player: ReadStorage< Player>| {
@@ -399,7 +379,11 @@ impl SimpleState for MainGameState {
             }
             alive
         });
-        if player {
+        if data.world.exec(want_advance) {
+            Trans::Switch(Box::new(MainGameState {
+                sprite_sheet: self.sprite_sheet.clone(),
+            }))
+        } else if player {
             Trans::None
         } else {
             Trans::Switch(Box::new(GameOverState {
@@ -429,6 +413,7 @@ fn main() -> amethyst::Result<()> {
         GameDataBuilder::default()
             .with_bundle(input_bundle)?
             .with_bundle(TransformBundle::new())?
+            .with_bundle(FPSCounterBundle)?
             .with(ContinueSystem, "continue", &[])
             .with(PlayerMovementSystem::new(), "player_move", &[])
             .with(ChaseAndWanderSystem, "chase_and_wander", &[])
@@ -446,6 +431,8 @@ fn main() -> amethyst::Result<()> {
             .with(SightSystem, "sight", &["animation"])
             .with(AimingSystem, "aim", &["sight"])
             .with(DeathSystem, "death", &["player_damage", "enemy_damage"])
+            .with(PortalSystem, "portal", &[])
+            .with(ExitSystem, "exit", &["portal"])
             .with_barrier()
             .with_bundle(RenderBundle::new(pipe, Some(config))
                 .with_sprite_sheet_processor()

@@ -89,6 +89,9 @@ impl<'s> System<'s> for PlayerMovementSystem {
     fn run(&mut self, (players, mut velocities, mut rotations, mut animations, input, time, entities) : Self::SystemData) {
         let deacc_factor = 3.0;
         for (player, mut velocity, mut animation, entity) in (&players, &mut velocities, &mut animations, &entities).join() {
+            if animation.state() != AnimationState::Idle && animation.state() != AnimationState::Walking {
+                continue;
+            }
             let x_tilt = input.axis_value("leftright");
             let y_tilt = input.axis_value("updown");
             if let (Some(x_tilt), Some(y_tilt)) = (x_tilt, y_tilt) {

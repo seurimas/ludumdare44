@@ -11,6 +11,6 @@
   },
   actions: {
     "attack": [ [Mouse(Left)], [Key(Space)] ],
-    "defend": [ [Key(LShift)] ],
+    "interact": [ [Mouse(Right)], [Key(E)] ],
   }
-  )
+)

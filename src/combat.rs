@@ -15,28 +15,44 @@ use crate::enemies::*;
 pub struct Health {
     pub max: i32,
     pub left: i32,
+    pub invuln: f32,
+}
+impl Health {
+    pub fn new(max: i32) -> Health {
+        Health {
+            max,
+            left: max,
+            invuln: 0.0,
+        }
+    }
+    pub fn hit_for(&mut self, amount: i32, invuln: f32) {
+        self.left -= amount;
+        self.invuln = invuln;
+    }
 }
 
 pub struct DeathSystem;
 impl<'s> System<'s> for DeathSystem {
     type SystemData = (
         WriteStorage<'s, AnimationController>,
-        ReadStorage<'s, Health>,
+        WriteStorage<'s, Health>,
         Entities<'s>,
+        Read<'s, Time>,
     );
-    fn run(&mut self, (animation, health, mut entities) : Self::SystemData) {
-        for (health, entity) in (&health, &entities).join() {
+    fn run(&mut self, (animation, mut health, mut entities, time) : Self::SystemData) {
+        for (health, entity) in (&mut health, &entities).join() {
             if health.left <= 0 {
                 if !is_staggered(entity, &animation) {
                     entities.delete(entity);
                 }
             }
+            health.invuln -= time.delta_seconds();
         }
     }
 }
 
 #[derive(Component, Debug)]
-#[storage(VecStorage)]
+#[storage(HashMapStorage)]
 pub struct StaggerAnimation {
     stagger: HitboxAnimation,
 }
@@ -167,7 +183,7 @@ impl<'s> HitboxCollisionSystem<'s> for EnemyDamageSystem {
             let health = &mut extra.2;
             let enemy = &extra.3;
             if let (Some(enemy), Some(health)) = (enemy.get(entity_a), health.get_mut(entity_b)) {
-                health.left -= 1;
+                health.hit_for(enemy.damage, 1.0);
             }
         }
     }
