@@ -1,4 +1,4 @@
-pub const SPRITE_DEBUG: usize = 0;
+pub const CHEST_SPRITE: usize = 0;
 
 pub const PLAYER_IDLE: usize = 1;
 pub const PLAYER_ATTACK_0: usize = 2;
@@ -37,3 +37,15 @@ pub const WALL: usize = 29;
 
 pub const HEART_SPIN: [usize; 8] = [30, 31, 32, 33, 34, 35, 36, 37];
 pub const SPEND_HEART_SPIN: [usize; 8] = [38, 39, 40, 41, 42, 43, 44, 45];
+
+pub const CONTINUE: usize = 46;
+pub const WASD_UI: usize = 47;
+pub const SPACE_UI: usize = 48;
+pub const E_UI: usize = 49;
+pub const MOVEMENT: usize = 50;
+pub const ATTACK: usize = 51;
+pub const INTERACT: usize = 52;
+pub const BUY_UPGRADES: usize = 53;
+
+pub const PORTAL_CLOSED: usize = 54;
+pub const PORTAL_SPIN: [usize; 7] = [55, 56, 57, 58, 59, 60, 61];

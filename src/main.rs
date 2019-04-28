@@ -213,6 +213,7 @@ impl SimpleState for InitializingGameState {
         data.world.add_resource(DebugLinesParams {
             line_width: 100.0,
         });
+        data.world.add_resource::<Option<ContinueTimer>>(None);
         data.world.register::<StaggerAnimation>();
         let sprite_sheet = load_spritesheet(data.world, get_resource("Sprites"), &mut self.progress);
         let main_sprite = MainSprite(sprite_sheet.clone());
@@ -222,7 +223,7 @@ impl SimpleState for InitializingGameState {
     fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         match self.progress.complete() {
             Completion::Complete => {
-                Trans::Switch(Box::new(MainGameState {
+                Trans::Switch(Box::new(TutorialState {
                     sprite_sheet: self.sprite_sheet.clone().unwrap(),
                 }))
             },
@@ -237,17 +238,76 @@ struct GameOverState {
 impl SimpleState for GameOverState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         data.world.delete_all();
+        init_continue(data.world, 3.0, 2.0);
         spawn_at_z(data.world, 0.0, 0.0, 1.0)
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
             .build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_G, Anchor::Middle, (-24.0, 8.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_A, Anchor::Middle, (-8.0, 8.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_M, Anchor::Middle, (8.0, 8.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_E_0, Anchor::Middle, (24.0, 8.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_O, Anchor::Middle, (-24.0, -8.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_V, Anchor::Middle, (-8.0, -8.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_E_1, Anchor::Middle, (8.0, -8.0)).build();
-        draw_sprite(data.world, self.sprite_sheet.clone(), GAME_OVER_R, Anchor::Middle, (24.0, -8.0)).build();
+        draw_sprite(data.world, GAME_OVER_G, Anchor::Middle, (-24.0, 8.0)).build();
+        draw_sprite(data.world, GAME_OVER_A, Anchor::Middle, (-8.0, 8.0)).build();
+        draw_sprite(data.world, GAME_OVER_M, Anchor::Middle, (8.0, 8.0)).build();
+        draw_sprite(data.world, GAME_OVER_E_0, Anchor::Middle, (24.0, 8.0)).build();
+        draw_sprite(data.world, GAME_OVER_O, Anchor::Middle, (-24.0, -8.0)).build();
+        draw_sprite(data.world, GAME_OVER_V, Anchor::Middle, (-8.0, -8.0)).build();
+        draw_sprite(data.world, GAME_OVER_E_1, Anchor::Middle, (8.0, -8.0)).build();
+        draw_sprite(data.world, GAME_OVER_R, Anchor::Middle, (24.0, -8.0)).build();
+    }
+    fn on_stop(&mut self, data: StateData<GameData>) {
+        data.world.add_resource::<Option<ContinueTimer>>(None);
+    }
+    fn handle_event(
+        &mut self,
+        data: StateData<'_, GameData<'_, '_>>,
+        event: StateEvent,
+    ) -> SimpleTrans {
+        if want_continue(&event) && data.world.exec(can_continue) {
+            Trans::Switch(Box::new(MainGameState {
+                sprite_sheet: self.sprite_sheet.clone(),
+            }))
+        } else {
+            Trans::None
+        }
+    }
+}
+
+struct TutorialState {
+    sprite_sheet: SpriteSheetHandle,
+}
+impl SimpleState for TutorialState {
+    fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        data.world.delete_all();
+        init_continue(data.world, 0.0, 2.0);
+        spawn_at_z(data.world, 0.0, 0.0, 1.0)
+            .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
+            .build();
+        draw_sprite(data.world, MOVEMENT, Anchor::TopLeft, (0.0, 8.0)).build();
+        draw_sprite(data.world, WASD_UI, Anchor::TopLeft, (80.0, 0.0)).build();
+        draw_sprite(data.world, ATTACK, Anchor::TopLeft, (0.0, 32.0)).build();
+        draw_sprite(data.world, SPACE_UI, Anchor::TopLeft, (80.0, 32.0)).build();
+        draw_sprite(data.world, INTERACT, Anchor::TopLeft, (0.0, 48.0)).build();
+        draw_sprite(data.world, E_UI, Anchor::TopLeft, (80.0, 48.0)).build();
+
+        draw_sprite(data.world, BUY_UPGRADES, Anchor::TopRight, (0.0, 0.0)).build();
+        draw_sprite(data.world, SPEND_HEART_SPIN[0], Anchor::TopRight, (12.0, 26.0)).build();
+        draw_sprite(data.world, CHEST_SPRITE, Anchor::TopRight, (8.0, 34.0)).build();
+        draw_sprite(data.world, SPEND_HEART_SPIN[0], Anchor::TopRight, (44.0, 26.0)).build();
+        draw_sprite(data.world, SPEND_HEART_SPIN[0], Anchor::TopRight, (52.0, 26.0)).build();
+        draw_sprite(data.world, CHEST_SPRITE, Anchor::TopRight, (44.0, 34.0)).build();
+    }
+    fn on_stop(&mut self, data: StateData<GameData>) {
+        data.world.add_resource::<Option<ContinueTimer>>(None);
+    }
+    fn handle_event(
+        &mut self,
+        data: StateData<'_, GameData<'_, '_>>,
+        event: StateEvent,
+    ) -> SimpleTrans {
+        if want_continue(&event) && data.world.exec(can_continue) {
+            Trans::Switch(Box::new(MainGameState {
+                sprite_sheet: self.sprite_sheet.clone(),
+            }))
+        } else {
+            Trans::None
+        }
     }
 }
 
@@ -264,16 +324,16 @@ impl SimpleState for MainGameState {
         let mut hitboxes = HitState::new();
         hitboxes.set(ENEMY_HITTABLE_BOX, 16.0, 16.0, (0.0, 0.0));
         let hearts = [
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (8.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (24.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (40.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (56.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (72.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (88.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (104.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (120.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (136.0, 0.0)).build(),
-            draw_sprite(data.world, self.sprite_sheet.clone(), FULL_HEART, Anchor::TopLeft, (152.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (0.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (16.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (32.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (48.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (64.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (80.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (96.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (112.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (128.0, 0.0)).build(),
+            draw_sprite(data.world, FULL_HEART, Anchor::TopLeft, (144.0, 0.0)).build(),
         ];
 
         spawn_at(data.world, stage.0 / 2.0, stage.1 / 2.0)
@@ -301,31 +361,33 @@ impl SimpleState for MainGameState {
         spawn_goblin(data.world, stage.0, 0.0)
             .build();
 
+        portal(data.world, stage.0 / 2.0, stage.1 / 2.0).build();
+
         let chest = spawn_at(data.world, 0.0, stage.1)
-            .with_sprite(self.sprite_sheet.clone(), 0)
+            .with_sprite(self.sprite_sheet.clone(), CHEST_SPRITE)
             .with(hitboxes.clone())
             .with(AnimationController::new())
             .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
-        heart_spin(data.world, self.sprite_sheet.clone(), -4.0, 8.0)
+        heart_spin(data.world, -4.0, 8.0)
             .with(Parent { entity: chest })
             .build();
-        heart_spin(data.world, self.sprite_sheet.clone(), 4.0, 8.0)
+        heart_spin(data.world, 4.0, 8.0)
             .with(Parent { entity: chest })
             .build();
 
         let chest = spawn_at(data.world, stage.0, stage.1)
-            .with_sprite(self.sprite_sheet.clone(), 0)
+            .with_sprite(self.sprite_sheet.clone(), CHEST_SPRITE)
             .with(hitboxes.clone())
             .with(AnimationController::new())
             .with(Health { max: 2, left: 2 })
             .with_physics(8.0)
             .build();
-        spend_heart_spin(data.world, self.sprite_sheet.clone(), -4.0, 8.0)
+        spend_heart_spin(data.world, -4.0, 8.0)
             .with(Parent { entity: chest })
             .build();
-        spend_heart_spin(data.world, self.sprite_sheet.clone(), 4.0, 8.0)
+        spend_heart_spin(data.world, 4.0, 8.0)
             .with(Parent { entity: chest })
             .build();
     }
@@ -367,6 +429,7 @@ fn main() -> amethyst::Result<()> {
         GameDataBuilder::default()
             .with_bundle(input_bundle)?
             .with_bundle(TransformBundle::new())?
+            .with(ContinueSystem, "continue", &[])
             .with(PlayerMovementSystem::new(), "player_move", &[])
             .with(ChaseAndWanderSystem, "chase_and_wander", &[])
             .with(PlayerAttackSystem::new(), "player_attack", &["player_move"])

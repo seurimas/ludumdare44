@@ -234,10 +234,266 @@
       width: 16,
       offsets: None,
     ),
-  /* 28: Wall */
+  /* 29: Wall */
     (
       x: 16,
       y: 256,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 30-37: Heart Spin */
+    (
+      x: 0,
+      y: 16,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 31 */
+    (
+      x: 7,
+      y: 16,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 32 */
+    (
+      x: 0,
+      y: 23,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 33 */
+    (
+      x: 7,
+      y: 23,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 34 */
+    (
+      x: 0,
+      y: 30,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 35 */
+    (
+      x: 7,
+      y: 30,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 36 */
+    (
+      x: 0,
+      y: 37,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 37 */
+    (
+      x: 7,
+      y: 37,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 38-45: Spend Heart Spin */
+    (
+      x: 0,
+      y: 48,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 39 */
+    (
+      x: 7,
+      y: 48,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 40 */
+    (
+      x: 0,
+      y: 55,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 41 */
+    (
+      x: 7,
+      y: 55,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 42 */
+    (
+      x: 0,
+      y: 62,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 43 */
+    (
+      x: 7,
+      y: 62,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 44 */
+    (
+      x: 0,
+      y: 69,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 45 */
+    (
+      x: 7,
+      y: 69,
+      height: 6,
+      width: 7,
+      offsets: None,
+    ),
+  /* 46: Continue */
+    (
+      x: 512,
+      y: 33,
+      height: 31,
+      width: 96,
+      offsets: None,
+    ),
+  /* 47: WASD */
+    (
+      x: 272,
+      y: 0,
+      height: 32,
+      width: 48,
+      offsets: None,
+    ),
+  /* 48: Space */
+    (
+      x: 272,
+      y: 32,
+      height: 16,
+      width: 48,
+      offsets: None,
+    ),
+  /* 49: E */
+    (
+      x: 304,
+      y: 48,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 50: Movement */
+    (
+      x: 320,
+      y: 32,
+      height: 16,
+      width: 128,
+      offsets: None,
+    ),
+  /* 51: Attack */
+    (
+      x: 320,
+      y: 48,
+      height: 16,
+      width: 96,
+      offsets: None,
+    ),
+  /* 52: Interact */
+    (
+      x: 320,
+      y: 64,
+      height: 16,
+      width: 144,
+      offsets: None,
+    ),
+  /* 53: Buy Upgrades */
+    (
+      x: 320,
+      y: 80,
+      height: 24,
+      width: 80,
+      offsets: None,
+    ),
+  /* 54: Portal Closed */
+    (
+      x: 0,
+      y: 80,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 55-61: Portal open */
+    (
+      x: 0,
+      y: 96,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 56 */
+    (
+      x: 0,
+      y: 112,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 57 */
+    (
+      x: 0,
+      y: 128,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 58 */
+    (
+      x: 16,
+      y: 128,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 59 */
+    (
+      x: 16,
+      y: 112,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 60 */
+    (
+      x: 16,
+      y: 96,
+      height: 16,
+      width: 16,
+      offsets: None,
+    ),
+  /* 61 */
+    (
+      x: 16,
+      y: 80,
       height: 16,
       width: 16,
       offsets: None,

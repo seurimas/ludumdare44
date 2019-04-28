@@ -10,7 +10,7 @@
         )
   },
   actions: {
-    "attack": [ [Mouse(Left)] ],
+    "attack": [ [Mouse(Left)], [Key(Space)] ],
     "defend": [ [Key(LShift)] ],
   }
   )

@@ -51,7 +51,7 @@ fn knockback(distance: f32) -> HitboxAnimation {
     let speed = 100.0;
     let mut animation = HitboxAnimation::new();
     animation.add_frame_with_velocity((-speed, 0.0), distance / speed);
-    animation.add_frame_with_velocity((0.0, 0.0), 0.05);
+    animation.add_frame_with_velocity((0.0, 0.0), 0.2);
     animation
 }
 fn stagger_entity<'s>(entity: Entity, animations: &mut WriteStorage<'s, AnimationController>, stagger_animation: HitboxAnimation) {

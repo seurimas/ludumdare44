@@ -42,6 +42,25 @@ pub fn draw_wall(world: &mut World, sprite_sheet: &SpriteSheetHandle, (x, y): (i
         .build();
 }
 
+fn portal_animation(speed: f32) -> HitboxAnimation {
+    let mut animation = HitboxAnimation::new();
+    let frame = animation.add_frame(speed);
+    animation.set_sprite(frame, PORTAL_SPIN[0]);
+    let frame = animation.add_frame(speed);
+    animation.set_sprite(frame, PORTAL_SPIN[1]);
+    let frame = animation.add_frame(speed);
+    animation.set_sprite(frame, PORTAL_SPIN[2]);
+    let frame = animation.add_frame(speed);
+    animation.set_sprite(frame, PORTAL_SPIN[3]);
+    let frame = animation.add_frame(speed);
+    animation.set_sprite(frame, PORTAL_SPIN[4]);
+    let frame = animation.add_frame(speed);
+    animation.set_sprite(frame, PORTAL_SPIN[5]);
+    let frame = animation.add_frame(speed);
+    animation.set_sprite(frame, PORTAL_SPIN[6]);
+    animation
+}
+
 fn heart_spin_animation(rotation_speed: f32, pause_duration: f32, heart_spin: [usize; 8]) -> HitboxAnimation {
     let mut animation = HitboxAnimation::new();
     let frame = animation.add_frame(pause_duration);
@@ -63,7 +82,8 @@ fn heart_spin_animation(rotation_speed: f32, pause_duration: f32, heart_spin: [u
     animation
 }
 
-pub fn heart_spin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, y: f32) -> EntityBuilder {
+pub fn heart_spin(world: &mut World, x: f32, y: f32) -> EntityBuilder {
+    let sprite_sheet = get_sprite_sheet(world);
     let mut animation_controller = AnimationController::new();
     let rotation_speed = 0.15;
     let pause_duration = 0.5;
@@ -73,12 +93,22 @@ pub fn heart_spin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, y:
         .with(animation_controller)
 }
 
-pub fn spend_heart_spin(world: &mut World, sprite_sheet: SpriteSheetHandle, x: f32, y: f32) -> EntityBuilder {
+pub fn spend_heart_spin(world: &mut World, x: f32, y: f32) -> EntityBuilder {
+    let sprite_sheet = get_sprite_sheet(world);
     let mut animation_controller = AnimationController::new();
     let rotation_speed = 0.25;
     let pause_duration = 0.25;
     animation_controller.start_loop(heart_spin_animation(rotation_speed, pause_duration, SPEND_HEART_SPIN));
     spawn_at(world, x, y)
         .with_sprite(sprite_sheet, SPEND_HEART_SPIN[0])
+        .with(animation_controller)
+}
+
+pub fn portal(world: &mut World, x: f32, y: f32) -> EntityBuilder {
+    let sprite_sheet = get_sprite_sheet(world);
+    let mut animation_controller = AnimationController::new();
+    animation_controller.start_loop(portal_animation(0.15));
+    spawn_at(world, x, y)
+        .with_sprite(sprite_sheet, PORTAL_CLOSED)
         .with(animation_controller)
 }
