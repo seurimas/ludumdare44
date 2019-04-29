@@ -23,6 +23,7 @@ use amethyst::{
     renderer::*,
     assets::*,
     utils::fps_counter::*,
+    audio::output::*,
 };
 use nalgebra::{ Vector3, Point3};
 use crate::utils::*;
@@ -215,18 +216,31 @@ impl InitializingGameState {
 }
 impl SimpleState for InitializingGameState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        data.world.add_resource(AssetStorage::<amethyst::audio::Source>::new());
         data.world.add_resource(DebugLines::new().with_capacity(100));
         data.world.add_resource(DebugLinesParams {
             line_width: 100.0,
         });
+        init_output(&mut data.world.res);
         data.world.add_resource::<Option<ContinueTimer>>(None);
         data.world.register::<StaggerAnimation>();
         let sprite_sheet = load_spritesheet(data.world, get_resource("Sprites"), &mut self.progress);
-        let main_sprite = MainSprite(sprite_sheet.clone());
+        let swing_sound = load_sound(data.world, get_resource("swing.wav"), &mut self.progress);
+        let player_hit_sound = load_sound(data.world, get_resource("hit_enemy.wav"), &mut self.progress);
+        let enemy_hit_sound = load_sound(data.world, get_resource("hit_player.wav"), &mut self.progress);
+        let purchase_sound = load_sound(data.world, get_resource("purchase.wav"), &mut self.progress);
+        let main_sprite = MainAssets {
+            sprite_sheet: sprite_sheet.clone(),
+            swing_sound: swing_sound.clone(),
+            player_hit_sound: player_hit_sound.clone(),
+            enemy_hit_sound: enemy_hit_sound.clone(),
+            purchase_sound: purchase_sound.clone(),
+        };
         data.world.add_resource(main_sprite);
         self.sprite_sheet = Some(sprite_sheet);
     }
     fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+        println!("Errors: {:?} {} {}", self.progress.errors(), self.progress.num_loading(), self.progress.num_failed());
         match self.progress.complete() {
             Completion::Complete => {
                 Trans::Switch(Box::new(TutorialState {
@@ -282,6 +296,7 @@ struct TutorialState {
 impl SimpleState for TutorialState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         data.world.delete_all();
+        data.world.read_resource::<Output>().name();
         init_continue(data.world, 0.0, 2.0);
         spawn_at_z(data.world, 0.0, 0.0, 1.0)
             .with(Camera::from(Projection::orthographic(0.0, stage.0, 0.0, stage.1)))
@@ -394,6 +409,7 @@ fn main() -> amethyst::Result<()> {
             .with_bundle(input_bundle)?
             .with_bundle(TransformBundle::new())?
             .with_bundle(FPSCounterBundle)?
+            .with(Processor::<amethyst::audio::Source>::new(), "source_processor", &[])
             .with(ContinueSystem, "continue", &[])
             .with(PlayerMovementSystem::new(), "player_move", &[])
             .with(ChaseAndWanderSystem, "chase_and_wander", &[])

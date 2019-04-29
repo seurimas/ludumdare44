@@ -5,6 +5,7 @@ use amethyst::{
     core::transform::*,
     assets::*,
     renderer::*,
+    audio::*,
 };
 use crate::basics::*;
 use rand::prelude::*;
@@ -103,9 +104,21 @@ pub fn load_spritesheet<'a>(world: &mut World, path: String, progress: &'a mut P
         &sprite_sheet_store,
     )
 }
+
+pub fn load_sound<'a>(world: &mut World, path: String, progress: &'a mut ProgressCounter) -> SourceHandle {
+    let loader = world.read_resource::<Loader>();
+    let source_store = world.read_resource::<AssetStorage<amethyst::audio::Source>>();
+    loader.load(
+        path,
+        WavFormat,
+        (),
+        progress,
+        &source_store,
+    )
+}
 pub fn get_sprite_sheet(world: &World) -> SpriteSheetHandle {
-    let main_sprite = world.read_resource::<MainSprite>();
-    main_sprite.0.clone()
+    let main_sprite = world.read_resource::<MainAssets>();
+    main_sprite.sprite_sheet.clone()
 }
 pub fn idle_animation(stand: usize) -> HitboxAnimation {
     let mut idle = HitboxAnimation::new();

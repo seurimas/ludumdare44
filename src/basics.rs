@@ -3,11 +3,18 @@ use amethyst::{
     ecs::*,
     core::transform::*,
     renderer::*,
+    audio::*,
 };
 
 pub const stage: (f32, f32) = (200.0, 150.0);
 
-pub struct MainSprite(pub SpriteSheetHandle);
+pub struct MainAssets {
+    pub sprite_sheet: SpriteSheetHandle,
+    pub swing_sound: SourceHandle,
+    pub player_hit_sound: SourceHandle,
+    pub enemy_hit_sound: SourceHandle,
+    pub purchase_sound: SourceHandle,
+}
 
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
